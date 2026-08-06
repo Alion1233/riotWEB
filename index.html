@@ -769,6 +769,38 @@
   function closeModalOutside(e) {
     if (e.target === document.getElementById('modal')) closeModal();
   }
+ async function payWithStripe() {
+    const confirmBtn = document.querySelector('.modal-confirm');
+    confirmBtn.textContent = 'Ładowanie...';
+    confirmBtn.disabled = true;
+
+    try {
+      const response = await fetch('/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          packageName: selectedPackageName,
+          priceAmount: selectedPackagePrice 
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.url) {
+        // Przekierowanie użytkownika na bezpieczną stronę płatności Stripe
+        window.location.href = data.url;
+      } else {
+        alert('Błąd podczas generowania płatności: ' + (data.error || 'Nieznany błąd'));
+        confirmBtn.textContent = 'Przejdź do płatności';
+        confirmBtn.disabled = false;
+      }
+    } catch (error) {
+      console.error('Błąd:', error);
+      alert('Nie udało się połączyć z serwerem płatności.');
+      confirmBtn.textContent = 'Przejdź do płatności';
+      confirmBtn.disabled = false;
+    }
+  }
 </script>
 </body>
 </html>
