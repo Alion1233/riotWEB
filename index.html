@@ -747,6 +747,10 @@
 </div>
 
 <script>
+  // Zmienne przechowujące aktualnie wybrany pakiet
+  let selectedPackageName = '';
+  let selectedPackagePrice = 0; // cena w PLN
+
   function showPage(id, btn) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -755,10 +759,13 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function openModal(name, coins, price) {
+  function openModal(name, coins, priceText, priceAmount) {
+    selectedPackageName = name;
+    selectedPackagePrice = priceAmount; // Zapamiętujemy kwotę (np. 29, 99, 179, 499)
+
     document.getElementById('modal-pkg-name').textContent = 'Pakiet ' + name;
     document.getElementById('modal-pkg-coins').textContent = coins;
-    document.getElementById('modal-pkg-price').textContent = price;
+    document.getElementById('modal-pkg-price').textContent = priceText;
     document.getElementById('modal').classList.add('open');
   }
 
@@ -769,7 +776,8 @@
   function closeModalOutside(e) {
     if (e.target === document.getElementById('modal')) closeModal();
   }
- async function payWithStripe() {
+
+  async function payWithStripe() {
     const confirmBtn = document.querySelector('.modal-confirm');
     confirmBtn.textContent = 'Ładowanie...';
     confirmBtn.disabled = true;
