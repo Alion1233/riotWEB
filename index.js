@@ -27,7 +27,7 @@ app.post('/create-checkout-session', async (req, res) => {
     const amountInGrosze = Math.round(Number(priceAmount) * 100);
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card', 'blik'],
+      // payment_method_types: ['card', 'blik'],
       line_items: [
         {
           price_data: {
