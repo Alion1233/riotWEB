@@ -1,47 +1,57 @@
 const express = require('express');
 const cors = require('cors');
-const path = require('path'); // Wbudowany moduł Node.js
+const path = require('path');
 
-const stripe = require('stripe')('sk_test_TWOJ_TAJNY_KLUCZ_STRIPE');
+// Pobieranie klucza ze zmiennych środowiskowych serwera (BEZPIECZNE)
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-const app = express();
+const app = express()
 
 app.use(cors());
 app.use(express.json());
 
-// 1. ZWRACANIE PLIKU HTML NA STRONIE GŁÓWNEJ:
+// Serwowanie statycznych plików (np. index.html) z bieżącego folderu
+app.use(express.static(__dirname));
+
+// Główna trasa – wysyła plik index.html do przeglądarki
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// 2. ENDPOINT PŁATNOŚCI STRIPE:
+// Trasa do tworzenia sesji płatności w Stripe
 app.post('/create-checkout-session', async (req, res) => {
   try {
+    const { packageName, priceAmount } = req.body;
+
+    // Przeliczenie kwoty PLN na grosze (np. 29 PLN -> 2900 groszy)
+    const amountInGrosze = Math.round(Number(priceAmount) * 100);
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card', 'blik'],
       line_items: [
         {
           price_data: {
             currency: 'pln',
-            product_data: { name: 'Doładowanie' },
-            unit_amount: 2000, // 20.00 PLN w groszach
+            product_data: {
+              name: `Pakiet ${packageName || 'Coins'}`,
+            },
+            unit_amount: amountInGrosze,
           },
           quantity: 1,
         },
       ],
       mode: 'payment',
-      success_url: 'https://twoja-strona.pl/sukces',
-      cancel_url: 'https://twoja-strona.pl/anulowano',
+      // Adresy przekierowania po dokonaniu lub anulowaniu płatności
+      success_url: 'https://riotweb.onrender.com/',
+      cancel_url: 'https://riotweb.onrender.com/',
     });
 
     res.json({ url: session.url });
   } catch (error) {
-    console.error('Błąd Stripe:', error);
+    console.error('Błąd tworzenia sesji Stripe:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Serwer działa na porcie ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Serwer działa na porcie ${PORT}`));
