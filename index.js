@@ -50,10 +50,9 @@ app.post('/create-checkout-session', async (req, res) => {
 
 app.get('/test-db', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT 1 + 1 AS result');
-    res.json({ success: true, message: 'Połączenie z bazą działa!', result: rows[0].result });
+    const [rows] = await pool.query('SELECT * FROM users LIMIT 5');
+    res.json({ success: true, rows });
   } catch (error) {
-    console.error('Błąd połączenia z bazą:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
