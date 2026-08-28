@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-
+const pool = require('./db');
 // Pobieranie klucza ze zmiennych środowiskowych serwera (BEZPIECZNE)
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
