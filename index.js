@@ -1,12 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-let Cods = {
-  small:  ["riot12313312", "riot14444412"],
-  medium: ["riot44445523312", "riot14123333111412"]
-};
 
-let code = Cods.small.shift();
 // Pobieranie klucza ze zmiennych środowiskowych serwera (BEZPIECZNE)
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
