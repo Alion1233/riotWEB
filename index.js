@@ -48,5 +48,15 @@ app.post('/create-checkout-session', async (req, res) => {
   }
 });
 
+app.get('/test-db', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT 1 + 1 AS result');
+    res.json({ success: true, message: 'Połączenie z bazą działa!', result: rows[0].result });
+  } catch (error) {
+    console.error('Błąd połączenia z bazą:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Serwer działa na porcie ${PORT}`));
