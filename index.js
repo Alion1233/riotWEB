@@ -22,29 +22,21 @@ app.get('/', (req, res) => {
 app.post('/create-checkout-session', async (req, res) => {
   try {
     const { packageName, priceAmount } = req.body;
-
-    // Przeliczenie kwoty PLN na grosze (np. 29 PLN -> 2900 groszy)
     const amountInGrosze = Math.round(Number(priceAmount) * 100);
 
     const session = await stripe.checkout.sessions.create({
-      // payment_method_types: ['card', 'blik'],
-      managed_payments: {
-        enabled: false,
-      },
+      managed_payments: { enabled: false },
       line_items: [
         {
           price_data: {
             currency: 'pln',
-            product_data: {
-              name: `Pakiet ${packageName || 'Coins'}`,
-            },
+            product_data: { name: `Pakiet ${packageName || 'Coins'}` },
             unit_amount: amountInGrosze,
           },
           quantity: 1,
         },
       ],
       mode: 'payment',
-      // Adresy przekierowania po dokonaniu lub anulowaniu płatności
       success_url: 'https://riotweb.onrender.com/',
       cancel_url: 'https://riotweb.onrender.com/',
     });
