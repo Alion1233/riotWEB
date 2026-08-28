@@ -1,18 +1,10 @@
 {
-  "name": "desktop",
-  "version": "1.0.0",
-  "main": "index.js",
+  "name": "my-package",
   "scripts": {
-    "start": "node index.js"
+    "build": "babel src -d lib",
+    "test": "jest"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "stripe": "^22.4.0"
+    "mysql2": "^3.24.2"
   }
 }
-
