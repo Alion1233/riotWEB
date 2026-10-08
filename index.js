@@ -71,3 +71,12 @@ app.get('/test-db', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Serwer działa na porcie ${PORT}`));
+
+(async () => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM users LIMIT 5');
+    console.log('✅ Połączono z bazą. Użytkownicy:', rows);
+  } catch (err) {
+    console.error('❌ Błąd bazy:', err.code, err.message);
+  }
+})();
