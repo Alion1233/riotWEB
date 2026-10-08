@@ -35,6 +35,8 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  .hidden { display: none !important; }
+
   /* ── NAVIGATION ── */
   nav {
     position: fixed; top: 0; left: 0; right: 0; z-index: 100;
@@ -497,6 +499,184 @@
   }
 
   .modal-confirm:hover { background: var(--accent-hover); }
+  .modal-confirm:disabled { opacity: 0.6; cursor: wait; }
+
+  .test-note {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    color: #FFC107;
+    background: rgba(255, 193, 7, 0.08);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 20px;
+  }
+
+  /* ── SUCCESS PAGE (kod po zakupie) ── */
+  .success-wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 72px 24px 100px;
+  }
+
+  .success-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 44px 40px;
+    text-align: center;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.4);
+  }
+
+  .success-icon {
+    width: 64px; height: 64px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    background: rgba(0, 230, 118, 0.1);
+    border: 1px solid rgba(0, 230, 118, 0.35);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .success-icon svg { width: 32px; height: 32px; fill: #00E676; }
+  .success-icon.err { background: rgba(255,0,60,0.1); border-color: rgba(255,0,60,0.35); }
+  .success-icon.err svg { fill: var(--accent); }
+
+  .success-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 32px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--white);
+    margin-bottom: 8px;
+  }
+
+  .success-sub { font-size: 14px; color: var(--text-muted); line-height: 1.7; }
+  .success-sub strong { color: var(--white); }
+
+  .code-label {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: 3px; text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 32px 0 10px;
+    text-align: left;
+  }
+
+  .code-box { display: flex; gap: 10px; align-items: stretch; }
+
+  .code-value {
+    flex: 1;
+    font-family: 'Courier New', monospace;
+    font-size: 22px; font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--white);
+    background: var(--bg-main);
+    border: 1px dashed rgba(255, 0, 60, 0.45);
+    border-radius: 6px;
+    padding: 16px;
+    word-break: break-all;
+    user-select: all;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .copy-btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase;
+    padding: 0 26px;
+    background: var(--accent);
+    color: var(--white);
+    border: none; border-radius: 6px; cursor: pointer;
+    transition: background 0.2s;
+    box-shadow: 0 4px 18px var(--accent-glow);
+    white-space: nowrap;
+  }
+  .copy-btn:hover { background: var(--accent-hover); }
+  .copy-btn.done { background: #00B35F; box-shadow: none; }
+
+  .warn-note {
+    margin-top: 18px;
+    font-size: 12px; line-height: 1.6;
+    color: var(--text-muted);
+    text-align: left;
+  }
+
+  .guide {
+    margin-top: 28px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 36px 40px;
+  }
+
+  .guide-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 22px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--white);
+    margin-bottom: 24px;
+  }
+
+  .guide-steps { list-style: none; counter-reset: step; }
+
+  .guide-steps li {
+    counter-increment: step;
+    position: relative;
+    padding: 0 0 22px 52px;
+    font-size: 14px; line-height: 1.65;
+    color: #BDC7D5;
+  }
+
+  .guide-steps li:last-child { padding-bottom: 0; }
+
+  .guide-steps li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: -2px;
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: rgba(255, 0, 60, 0.1);
+    border: 1px solid rgba(255, 0, 60, 0.3);
+    color: var(--accent);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .guide-steps strong { color: var(--white); }
+
+  .cmd-box {
+    margin-top: 12px;
+    display: flex; gap: 10px; align-items: stretch;
+  }
+
+  .cmd-value {
+    flex: 1;
+    font-family: 'Courier New', monospace;
+    font-size: 15px;
+    color: #00E676;
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    word-break: break-all;
+    user-select: all;
+  }
+
+  .copy-btn.small { padding: 0 18px; font-size: 12px; box-shadow: none; }
+
+  .success-actions { margin-top: 28px; text-align: center; }
+
+  .btn-ghost {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase;
+    padding: 14px 36px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--white);
+    border-radius: 4px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-ghost:hover { background: var(--white); color: var(--bg-main); }
 
   /* ── RESPONSIVENESS ── */
   @media (max-width: 1024px) {
@@ -515,6 +695,10 @@
     .nav-tab { padding: 8px 16px; font-size: 13px; }
     .hero-stats { flex-direction: column; gap: 24px; }
     .hero { padding-top: 60px; }
+    .success-card, .guide { padding: 32px 22px; }
+    .code-box, .cmd-box { flex-direction: column; }
+    .copy-btn { padding: 14px 0; }
+    .code-value { font-size: 18px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -525,8 +709,8 @@
 <body>
 
 <nav>
-  <a href="#"> 
-    <img class="logo" src="riotlogo.png" alt="Riot Logo"> 
+  <a href="/"> 
+    <img class="logo" src="/riotlogo.png" alt="Riot Logo"> 
   </a> 
   
   <div class="nav-logo">RIOT<span>ROLEPLAY</span></div>
@@ -593,31 +777,30 @@
   </div>
 
   <div class="packages">
-   <!-- test -->
-  <div class="pkg">
+
+    <!-- PAKIET TESTOWY (widoczny tylko gdy TEST = true w index.js) -->
+    <div class="pkg" id="pkg-test" style="display:none;">
       <div class="pkg-top">
-        <div class="pkg-tier">Pakiet Obywatelski</div>
-        <div class="pkg-name">Nowicjusz</div>
-        <div class="pkg-tagline">Idealny na start w mieście</div>
+        <div class="pkg-tier">Tylko tryb testowy</div>
+        <div class="pkg-name">Test</div>
+        <div class="pkg-tagline">Do sprawdzania działania sklepu</div>
         <div class="pkg-coins">
-          <span class="pkg-amount">1</span>
+          <span class="pkg-amount">100</span>
           <span class="pkg-unit">RC</span>
         </div>
       </div>
       <div class="pkg-body">
         <ul class="pkg-perks">
-          <li>1 000 RIOT Coinów na konto</li>
-          <li>Ranga „Wspierający" na forum i Discord</li>
-          <li>Garaż na 1 dodatkowy pojazd</li>
-          <li>Priorytet w kolejce logowania (×1)</li>
+          <li>100 RIOT Coinów na konto</li>
+          <li>Pakiet znika po wyłączeniu trybu testowego</li>
         </ul>
         <div class="pkg-price">
-          <span class="price-amount"><span class="price-cur">PLN</span> 1</span>
-          <div class="per-coin">0,030 zł / RC</div>
+          <span class="price-amount"><span class="price-cur">PLN</span> 2</span>
         </div>
-        <button class="pkg-btn" onclick="openModal('Nowicjusz', '1 000 RC', '1 PLN', 2)">Wybierz pakiet</button>
+        <button class="pkg-btn" onclick="openModal('test', 'Test', '100 RC', '2 PLN')">Wybierz pakiet</button>
       </div>
     </div>
+
     <!-- PAKIET I -->
     <div class="pkg">
       <div class="pkg-top">
@@ -640,7 +823,7 @@
           <span class="price-amount"><span class="price-cur">PLN</span> 29</span>
           <div class="per-coin">0,030 zł / RC</div>
         </div>
-        <button class="pkg-btn" onclick="openModal('Nowicjusz', '1 000 RC', '29 PLN', 29)">Wybierz pakiet</button>
+        <button class="pkg-btn" onclick="openModal('nowicjusz', 'Nowicjusz', '1 000 RC', '29 PLN')">Wybierz pakiet</button>
       </div>
     </div>
 
@@ -668,7 +851,7 @@
           <span class="price-amount"><span class="price-cur">PLN</span> 99</span>
           <div class="per-coin">0,020 zł / RC — <span class="discount">oszczędzasz 33%</span></div>
         </div>
-        <button class="pkg-btn" onclick="openModal('Zaangażowany', '5 000 RC', '99 PLN', 99)">Wybierz pakiet</button>
+        <button class="pkg-btn" onclick="openModal('zaangazowany', 'Zaangażowany', '5 000 RC', '99 PLN')">Wybierz pakiet</button>
       </div>
     </div>
 
@@ -696,7 +879,7 @@
           <span class="price-amount"><span class="price-cur">PLN</span> 179</span>
           <div class="per-coin">0,018 zł / RC — <span class="discount">oszczędzasz 40%</span></div>
         </div>
-        <button class="pkg-btn" onclick="openModal('Pro', '10 000 RC', '179 PLN', 179)">Wybierz pakiet</button>
+        <button class="pkg-btn" onclick="openModal('pro', 'Pro', '10 000 RC', '179 PLN')">Wybierz pakiet</button>
       </div>
     </div>
 
@@ -724,7 +907,7 @@
           <span class="price-amount"><span class="price-cur">PLN</span> 499</span>
           <div class="per-coin">0,015 zł / RC — <span class="discount">oszczędzasz 50%</span></div>
         </div>
-        <button class="pkg-btn pkg-btnGOLD" onclick="openModal('Boss', '30 000 RC', '499 PLN', 499)">Wybierz pakiet</button>
+        <button class="pkg-btn pkg-btnGOLD" onclick="openModal('boss', 'Boss', '30 000 RC', '499 PLN')">Wybierz pakiet</button>
       </div>
     </div>
 
@@ -732,9 +915,77 @@
 
   <p class="shop-note">
     Bezpieczeństwo transakcji gwarantuje szyfrowana bramka płatnicza.<br>
-    Wirtualna waluta przypisywana jest automatycznie do powiązanego konta Steam w czasie do 5 minut.<br>
+    Po zakupie otrzymasz kod, który wpisujesz w grze komendą <strong>/kod</strong>.<br>
     Potrzebujesz pomocy? Skontaktuj się z nami poprzez Discord lub e-mail: <strong>riotrpofficial@gmail.com</strong>
   </p>
+</div>
+
+<!-- SUCCESS (kod po zakupie) -->
+<div id="page-success" class="page">
+  <div class="success-wrap">
+
+    <!-- ładowanie -->
+    <div class="success-card" id="order-loading">
+      <div class="success-title">Weryfikujemy płatność…</div>
+      <p class="success-sub">Chwilę, generujemy Twój kod.</p>
+    </div>
+
+    <!-- błąd -->
+    <div class="success-card hidden" id="order-error">
+      <div class="success-icon err">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+      </div>
+      <div class="success-title">Coś poszło nie tak</div>
+      <p class="success-sub" id="order-error-text">—</p>
+      <div class="success-actions">
+        <button class="btn-ghost" onclick="location.reload()">Spróbuj ponownie</button>
+      </div>
+    </div>
+
+    <!-- sukces -->
+    <div class="hidden" id="order-ok">
+      <div class="success-card">
+        <div class="success-icon">
+          <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        </div>
+        <div class="success-title">Dziękujemy za zakup!</div>
+        <p class="success-sub">
+          Pakiet <strong id="order-pkg">—</strong> (<strong id="order-coins">—</strong>) jest gotowy do odebrania.
+        </p>
+
+        <div class="test-note hidden" id="order-test-note" style="margin-top:20px;">
+          Tryb testowy — płatność została pominięta
+        </div>
+
+        <div class="code-label">Twój kod</div>
+        <div class="code-box">
+          <div class="code-value" id="order-code">—</div>
+          <button class="copy-btn" id="copy-code-btn" onclick="copyText('order-code', 'copy-code-btn', 'Kopiuj kod')">Kopiuj kod</button>
+        </div>
+        <p class="warn-note">
+          Zapisz ten kod i nie udostępniaj go nikomu. Kod jest jednorazowy — po wpisaniu w grze traci ważność.
+          Możesz też wrócić na tę stronę później, korzystając z linku w przeglądarce.
+        </p>
+      </div>
+
+      <div class="guide">
+        <div class="guide-title">Jak odebrać RIOT Coins?</div>
+        <ol class="guide-steps">
+          <li><strong>Wejdź na serwer FiveM</strong> RIOT Roleplay i załaduj się swoją postacią.</li>
+          <li><strong>Otwórz czat</strong> w grze (domyślnie klawisz <strong>T</strong>).</li>
+          <li>
+            <strong>Wpisz komendę</strong> z kodem i zatwierdź Enterem:
+            <div class="cmd-box">
+              <div class="cmd-value" id="order-cmd">/kod —</div>
+              <button class="copy-btn small" id="copy-cmd-btn" onclick="copyText('order-cmd', 'copy-cmd-btn', 'Kopiuj')">Kopiuj</button>
+            </div>
+          </li>
+          <li><strong>Gotowe!</strong> Coiny pojawią się na Twoim koncie. W razie problemów napisz do nas na Discordzie.</li>
+        </ol>
+      </div>
+    </div>
+
+  </div>
 </div>
 
 <!-- MODAL -->
@@ -747,6 +998,9 @@
     <div class="modal-pkg" id="modal-pkg-name">—</div>
     <div class="modal-body" id="modal-pkg-coins">—</div>
     <div class="modal-price" id="modal-pkg-price">—</div>
+    <div class="test-note hidden" id="modal-test-note">
+      Tryb testowy — płatność zostanie pominięta
+    </div>
     <div class="modal-body" style="margin-bottom:28px; font-size:12px;">
       Po zatwierdzeniu zostaniesz przekierowany do systemu bezpiecznych płatności internetowych.
     </div>
@@ -755,24 +1009,27 @@
 </div>
 
 <script>
-  let selectedPackageName = '';
-  let selectedPackagePrice = 0;
+  let selectedPackageId = '';
+  let shopTestMode = false;
 
   function showPage(id, btn) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
     document.getElementById('page-' + id).classList.add('active');
-    btn.classList.add('active');
+    if (btn) btn.classList.add('active');
+    if (id !== 'success' && location.pathname !== '/') {
+      history.replaceState(null, '', '/');
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function openModal(name, coins, priceText, priceAmount) {
-    selectedPackageName = name;
-    selectedPackagePrice = priceAmount;
+  function openModal(id, name, coins, priceText) {
+    selectedPackageId = id;
 
     document.getElementById('modal-pkg-name').textContent = 'Pakiet ' + name;
     document.getElementById('modal-pkg-coins').textContent = coins;
     document.getElementById('modal-pkg-price').textContent = priceText;
+    document.getElementById('modal-test-note').classList.toggle('hidden', !shopTestMode);
     document.getElementById('modal').classList.add('open');
   }
 
@@ -793,10 +1050,7 @@
       const response = await fetch('/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          packageName: selectedPackageName,
-          priceAmount: selectedPackagePrice 
-        })
+        body: JSON.stringify({ packageId: selectedPackageId })
       });
 
       const data = await response.json();
@@ -815,6 +1069,86 @@
       confirmBtn.disabled = false;
     }
   }
+
+  /* ── Kopiowanie do schowka ── */
+  async function copyText(sourceId, btnId, defaultLabel) {
+    const text = document.getElementById(sourceId).textContent.trim();
+    const btn = document.getElementById(btnId);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    btn.textContent = 'Skopiowano ✓';
+    btn.classList.add('done');
+    setTimeout(() => {
+      btn.textContent = defaultLabel;
+      btn.classList.remove('done');
+    }, 2000);
+  }
+
+  /* ── Strona z kodem po zakupie ── */
+  function showOrderError(msg) {
+    document.getElementById('order-loading').classList.add('hidden');
+    document.getElementById('order-ok').classList.add('hidden');
+    document.getElementById('order-error-text').textContent = msg;
+    document.getElementById('order-error').classList.remove('hidden');
+  }
+
+  async function loadOrder() {
+    const params = new URLSearchParams(location.search);
+    const sessionId = params.get('session_id');
+    if (!sessionId) {
+      showOrderError('Brak identyfikatora zamówienia.');
+      return;
+    }
+
+    const qs = new URLSearchParams({ session_id: sessionId });
+    if (params.get('package')) qs.set('package', params.get('package'));
+
+    try {
+      const res = await fetch('/api/order?' + qs.toString());
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        showOrderError(data.error || 'Nie udało się pobrać kodu.');
+        return;
+      }
+
+      document.getElementById('order-pkg').textContent = data.packageName;
+      document.getElementById('order-coins').textContent =
+        Number(data.coins).toLocaleString('pl-PL') + ' RC';
+      document.getElementById('order-code').textContent = data.code;
+      document.getElementById('order-cmd').textContent = '/kod ' + data.code;
+      document.getElementById('order-test-note').classList.toggle('hidden', !data.test);
+
+      document.getElementById('order-loading').classList.add('hidden');
+      document.getElementById('order-ok').classList.remove('hidden');
+    } catch (err) {
+      console.error(err);
+      showOrderError('Nie udało się połączyć z serwerem. Odśwież stronę.');
+    }
+  }
+
+  /* ── Start ── */
+  (async function init() {
+    try {
+      const res = await fetch('/api/config');
+      const cfg = await res.json();
+      shopTestMode = !!cfg.test;
+      if (shopTestMode) document.getElementById('pkg-test').style.display = 'flex';
+    } catch (e) { /* brak configu = tryb produkcyjny */ }
+
+    if (location.pathname === '/success') {
+      showPage('success', null);
+      loadOrder();
+    }
+  })();
 </script>
 </body>
 </html>
