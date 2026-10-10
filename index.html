@@ -1,540 +1,1647 @@
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const crypto = require('crypto');
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RIOT Roleplay</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-require('dotenv').config();
-const mysql = require('mysql2/promise');
-
-// ════════════════════════════════════════════════════════════
-//  TRYB TESTOWY
-//  true  = płatność Stripe jest POMIJANA (kod dostajesz od razu)
-//  false = prawdziwe płatności
-//  !!! PRZED URUCHOMIENIEM SKLEPU DLA GRACZY USTAW NA false !!!
-// ════════════════════════════════════════════════════════════
-const TEST = true;
-
-// Pakiety definiowane po stronie serwera (klient nie decyduje o cenie ani liczbie coinów)
-const PACKAGES = {
-  test:         { name: 'Test',         coins: 100,   price: 2,   testOnly: true },
-  nowicjusz:    { name: 'Nowicjusz',    coins: 1000,  price: 29 },
-  zaangazowany: { name: 'Zaangażowany', coins: 5000,  price: 99 },
-  pro:          { name: 'Pro',          coins: 10000, price: 179 },
-  boss:         { name: 'Boss',         coins: 30000, price: 499 },
-};
-
-function getPackage(id) {
-  if (typeof id !== 'string') return null;
-  if (!Object.prototype.hasOwnProperty.call(PACKAGES, id)) return null;
-  const pkg = PACKAGES[id];
-  if (pkg.testOnly && !TEST) return null;
-  return pkg;
-}
-
-// ════════════════════════════════════════════════════════════
-//  UNBANY – skracanie / zdejmowanie bana (tabela alion_bans z zasobu FiveM)
-//  minutes = o ile skracamy ban, perm = zdejmuje każdy ban (także permanentny)
-//  Przykład: ban 10 dni + unban 7 dni = zostaje 3 dni.
-//  Ban krótszy niż pakiet jest zdejmowany w całości.
-//  Pakiety czasowe NIE działają na ban permanentny – tylko pakiet "perm".
-// ════════════════════════════════════════════════════════════
-const UNBAN_PACKAGES = {
-  '24h':  { name: 'Unban 24h',         label: '24 godz.',    minutes: 24 * 60,      price: 30 },
-  '7d':   { name: 'Unban 7 dni',       label: '7 dni',       minutes: 7 * 24 * 60,  price: 50 },
-  '14d':  { name: 'Unban 14 dni',      label: '14 dni',      minutes: 14 * 24 * 60, price: 60 },
-  '30d':  { name: 'Unban 30 dni',      label: '30 dni',      minutes: 30 * 24 * 60, price: 100 },
-  'perm': { name: 'Unban permanentny', label: 'PERM',        minutes: null,         price: 200, perm: true },
-};
-
-function getUnbanPackage(id) {
-  if (typeof id !== 'string') return null;
-  if (!Object.prototype.hasOwnProperty.call(UNBAN_PACKAGES, id)) return null;
-  return { id, ...UNBAN_PACKAGES[id] };
-}
-
-function unbanPackageList() {
-  return Object.keys(UNBAN_PACKAGES).map((id) => ({ id, ...UNBAN_PACKAGES[id] }));
-}
-
-// Kod bana ma format XXXX-XXXX-XXXX (alfabet bez 0, 1, I, O) – generuje go skrypt FiveM
-function normalizeBanCode(input) {
-  const raw = String(input || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (!/^[2-9A-HJ-NP-Z]{12}$/.test(raw)) return null;
-  return `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8, 12)}`;
-}
-
-// Co się stanie z banem po zakupie pakietu (ta sama logika do podglądu i do realizacji)
-function previewUnban(pkg, ban) {
-  if (ban.perm) {
-    return pkg.perm
-      ? { applicable: true, result: 'removed', remainingMinutes: 0 }
-      : { applicable: false };
+  :root {
+    --bg-main:     #0B0C10;
+    --bg-card:     #12141C;
+    --bg-card-alt: #171A24;
+    --border:      rgba(255, 255, 255, 0.06);
+    --border-glow: rgba(255, 0, 60, 0.2);
+    
+    --accent:      #FF003C;
+    --accent-hover:#FF2E5F;
+    --accent-glow: rgba(255, 0, 60, 0.35);
+    
+    --text-main:   #F5F6F9;
+    --text-muted:  #8F9CAE;
+    --white:       #FFFFFF;
   }
-  if (pkg.perm || pkg.minutes >= ban.minutesLeft) {
-    return { applicable: true, result: 'removed', remainingMinutes: 0 };
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-main);
+    color: var(--text-main);
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
   }
-  return { applicable: true, result: 'reduced', remainingMinutes: ban.minutesLeft - pkg.minutes };
-}
 
-// Prosty limiter zapytań na IP (ochrona przed zgadywaniem kodów bana)
-function createRateLimiter(limit, windowMs) {
-  const hits = new Map();
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of hits) if (entry.reset <= now) hits.delete(key);
-  }, windowMs).unref();
+  .hidden { display: none !important; }
 
-  return (req, res, next) => {
-    const now = Date.now();
-    let entry = hits.get(req.ip);
-    if (!entry || entry.reset <= now) {
-      entry = { count: 0, reset: now + windowMs };
-      hits.set(req.ip, entry);
+  /* ── NAVIGATION ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr; 
+    align-items: center;
+    padding: 0 64px;
+    height: 72px;
+    background: rgba(11, 12, 16, 0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+ 
+  nav > a {
+    justify-self: start;
+    display: flex;
+    align-items: center;
+  }
+
+  .nav-logo {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 24px; font-weight: 700;
+    letter-spacing: 3px; text-transform: uppercase;
+    color: var(--white);
+    justify-self: center;
+  }
+
+  .nav-logo span { color: var(--accent); }
+
+  .nav-tabs { 
+    display: flex; 
+    gap: 8px; 
+    justify-self: end;
+  }
+
+  .nav-tab {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px; font-weight: 600;
+    letter-spacing: 2px; text-transform: uppercase;
+    padding: 10px 24px;
+    border: none; cursor: pointer;
+    background: transparent;
+    color: var(--text-muted);
+    border-radius: 4px;
+    transition: color 0.2s, background-color 0.2s;
+  }
+
+  .nav-tab:hover { color: var(--white); background: rgba(255,255,255,0.03); }
+  .nav-tab.active { color: var(--white); background: rgba(255, 0, 60, 0.1); border: 1px solid rgba(255, 0, 60, 0.2); }
+
+  /* ── PAGES ── */
+  .page { display: none; padding-top: 72px; min-height: 100vh; }
+  .page.active { display: block; }
+
+  /* ── HERO SECTION ── */
+  .hero {
+    position: relative;
+    min-height: calc(85vh - 72px);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center;
+    padding: 100px 24px 80px;
+  }
+
+  .hero-bg {
+    position: absolute; inset: 0;
+    background: 
+      radial-gradient(circle at 50% -20%, rgba(255, 0, 60, 0.12) 0%, transparent 50%),
+      radial-gradient(circle at 50% 100%, rgba(18, 20, 28, 0.8) 0%, var(--bg-main) 100%);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .hero-badge {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: 4px; text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(255, 0, 60, 0.06);
+    border: 1px solid rgba(255, 0, 60, 0.2);
+    padding: 6px 20px;
+    border-radius: 20px;
+    margin-bottom: 28px;
+  }
+
+  .hero-logo {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: clamp(54px, 9vw, 100px);
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    line-height: 0.95;
+    color: var(--white);
+    margin-bottom: 24px;
+  }
+
+  .hero-logo span {
+    color: var(--accent);
+    text-shadow: 0 0 40px var(--accent-glow);
+  }
+  .logo {
+    position: absolute;
+    width: 100px;
+  }
+  .hero-desc {
+    max-width: 600px;
+    font-size: 16px; line-height: 1.75;
+    color: var(--text-muted);
+    margin-bottom: 48px;
+    font-weight: 300;
+  }
+
+  .hero-stats {
+    display: flex; gap: 80px; justify-content: center;
+    margin-bottom: 56px;
+  }
+
+  .stat-num {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 42px; font-weight: 700;
+    color: var(--white);
+    line-height: 1;
+  }
+
+  .stat-num span { color: var(--accent); }
+
+  .stat-label {
+    font-size: 12px; letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-top: 8px;
+    font-weight: 500;
+  }
+
+  .btn-primary {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase;
+    padding: 16px 48px;
+    background: var(--accent);
+    color: var(--white);
+    border: none; border-radius: 4px; cursor: pointer;
+    transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 24px var(--accent-glow);
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 30px var(--accent-glow);
+  }
+
+  /* ── FEATURES SECTION ── */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    max-width: 1200px;
+    margin: 0 auto;
+    margin-top: 80px;
+    gap: 24px;
+    padding: 0 40px 100px;
+  }
+
+  .feature {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 40px;
+    border-radius: 8px;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+
+  .feature:hover {
+    border-color: rgba(255, 0, 60, 0.25);
+    transform: translateY(-4px);
+  }
+
+  .feature-icon-svg {
+    width: 36px; height: 36px;
+    fill: var(--accent);
+    margin-bottom: 24px;
+  }
+
+  .feature-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 20px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    color: var(--white);
+    margin-bottom: 14px;
+  }
+
+  .feature-text { font-size: 14px; line-height: 1.65; color: var(--text-muted); font-weight: 400; }
+
+  /* ── SHOP SECTION ── */
+  .shop-header {
+    text-align: center;
+    padding: 80px 24px 56px;
+  }
+
+  .shop-eyebrow {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: 4px; text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+
+  .shop-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: clamp(32px, 5vw, 48px);
+    font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--white);
+    margin-bottom: 16px;
+  }
+
+  .shop-desc {
+    font-size: 15px; color: var(--text-muted);
+    max-width: 500px; margin: 0 auto;
+    line-height: 1.7;
+  }
+
+  .packages {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 32px;
+    max-width: 1240px; 
+    margin: 0 auto;
+    padding: 0 40px 80px;
+  }
+
+  .pkg {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 250px;
+    transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .pkg:hover {
+    transform: translateY(-6px);
+    border-color: rgba(255,255,255,0.15);
+  }
+  
+  .pkgGOLD:hover {
+    transform: translateY(-6px);
+    border-color: rgba(156, 191, 0, 0.64);
+  }
+
+  .pkg.featured {
+    background: linear-gradient(180deg, var(--bg-card-alt) 0%, var(--bg-card) 100%);
+    border-color: var(--accent);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 0, 60, 0.05);
+  }
+
+  .pkg.featured:hover {
+    box-shadow: 0 16px 48px rgba(255, 0, 60, 0.15), 0 0 0 1px var(--accent);
+  }
+
+  .pkg-ribbon {
+    position: absolute; top: 16px; right: 16px;
+    background: var(--accent);
+    color: var(--white);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 4px;
+  }
+
+  .pkg-top {
+    padding: 40px 36px 32px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .pkg-tier {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: 3px; text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .pkg-name {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 32px; font-weight: 700;
+    text-transform: uppercase;
+    color: var(--white);
+    margin-bottom: 4px;
+  }
+
+  .pkg-tagline { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+
+  .pkg-coins { display: flex; align-items: baseline; gap: 8px; }
+
+  .pkg-amount {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 52px; font-weight: 700;
+    color: var(--white); line-height: 1;
+  }
+
+  .pkg-unit {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 20px; font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+
+  .pkg-body { padding: 36px 36px 40px; display: flex; flex-direction: column; flex-grow: 1; }
+
+  .pkg-perks { list-style: none; margin-bottom: 40px; flex-grow: 1; }
+
+  .pkg-perks li {
+    font-size: 14px; color: #BDC7D5;
+    padding: 10px 0;
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .pkg-perks li::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .pkg-perksGOLD li::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: rgb(240, 255, 30);
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .pkg-price { text-align: center; margin-bottom: 24px; }
+
+  .price-amount {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 44px; font-weight: 700;
+    color: var(--white); line-height: 1;
+  }
+
+  .price-cur {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 20px; font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  .per-coin { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+  .discount { color: #00E676; font-weight: 500; }
+
+  .pkg-btn {
+    width: 100%;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase;
+    padding: 15px 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--white);
+    border-radius: 4px; cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .pkg-btn:hover {
+    background: var(--white);
+    color: var(--bg-main);
+    border-color: var(--white);
+  }
+  .pkg-btnGOLD:hover {
+    background: rgb(240, 255, 30);
+    color: var(--bg-main);
+    border-color: var(--white);
+  }
+
+  .pkg.featured .pkg-btn {
+    background: var(--accent);
+    color: var(--white);
+    border-color: var(--accent);
+    box-shadow: 0 4px 18px var(--accent-glow);
+  }
+
+  .pkg.featured .pkg-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+  .shop-note {
+    text-align: center;
+    padding: 0 24px 80px;
+    font-size: 13px; color: var(--text-muted);
+    line-height: 1.8; max-width: 600px; margin: 0 auto;
+  }
+
+  /* ── MODERN MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(4, 5, 7, 0.85);
+    backdrop-filter: blur(12px);
+    align-items: center; justify-content: center;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 48px;
+    max-width: 440px; width: 90%;
+    border-radius: 12px;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 32px 64px rgba(0,0,0,0.6);
+  }
+
+  .modal-close {
+    position: absolute; top: 20px; right: 20px;
+    background: none; border: none;
+    color: var(--text-muted); font-size: 22px;
+    cursor: pointer; transition: color 0.2s;
+  }
+  .modal-close:hover { color: var(--white); }
+
+  .modal-icon-svg {
+    width: 48px; height: 48px; fill: var(--accent); margin-bottom: 20px;
+  }
+
+  .modal-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 26px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--white); margin-bottom: 8px;
+  }
+
+  .modal-body { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
+
+  .modal-pkg {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 20px; font-weight: 700;
+    color: var(--accent);
+    margin: 20px 0 6px;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+
+  .modal-price {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 38px; font-weight: 700;
+    color: var(--white); margin-bottom: 28px;
+  }
+
+  .modal-confirm {
+    width: 100%;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase;
+    padding: 16px 0;
+    background: var(--accent);
+    color: var(--white);
+    border: none; border-radius: 4px; cursor: pointer;
+    transition: background 0.2s;
+    box-shadow: 0 4px 20px var(--accent-glow);
+  }
+
+  .modal-confirm:hover { background: var(--accent-hover); }
+  .modal-confirm:disabled { opacity: 0.6; cursor: wait; }
+
+  .test-note {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    color: #FFC107;
+    background: rgba(255, 193, 7, 0.08);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 20px;
+  }
+
+  /* ── SUCCESS PAGE (kod po zakupie) ── */
+  .success-wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 72px 24px 100px;
+  }
+
+  .success-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 44px 40px;
+    text-align: center;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.4);
+  }
+
+  .success-icon {
+    width: 64px; height: 64px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    background: rgba(0, 230, 118, 0.1);
+    border: 1px solid rgba(0, 230, 118, 0.35);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .success-icon svg { width: 32px; height: 32px; fill: #00E676; }
+  .success-icon.err { background: rgba(255,0,60,0.1); border-color: rgba(255,0,60,0.35); }
+  .success-icon.err svg { fill: var(--accent); }
+
+  .success-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 32px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--white);
+    margin-bottom: 8px;
+  }
+
+  .success-sub { font-size: 14px; color: var(--text-muted); line-height: 1.7; }
+  .success-sub strong { color: var(--white); }
+
+  .code-label {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: 3px; text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 32px 0 10px;
+    text-align: left;
+  }
+
+  .code-box { display: flex; gap: 10px; align-items: stretch; }
+
+  .code-value {
+    flex: 1;
+    font-family: 'Courier New', monospace;
+    font-size: 22px; font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--white);
+    background: var(--bg-main);
+    border: 1px dashed rgba(255, 0, 60, 0.45);
+    border-radius: 6px;
+    padding: 16px;
+    word-break: break-all;
+    user-select: all;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .copy-btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase;
+    padding: 0 26px;
+    background: var(--accent);
+    color: var(--white);
+    border: none; border-radius: 6px; cursor: pointer;
+    transition: background 0.2s;
+    box-shadow: 0 4px 18px var(--accent-glow);
+    white-space: nowrap;
+  }
+  .copy-btn:hover { background: var(--accent-hover); }
+  .copy-btn.done { background: #00B35F; box-shadow: none; }
+
+  .warn-note {
+    margin-top: 18px;
+    font-size: 12px; line-height: 1.6;
+    color: var(--text-muted);
+    text-align: left;
+  }
+
+  .guide {
+    margin-top: 28px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 36px 40px;
+  }
+
+  .guide-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 22px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--white);
+    margin-bottom: 24px;
+  }
+
+  .guide-steps { list-style: none; counter-reset: step; }
+
+  .guide-steps li {
+    counter-increment: step;
+    position: relative;
+    padding: 0 0 22px 52px;
+    font-size: 14px; line-height: 1.65;
+    color: #BDC7D5;
+  }
+
+  .guide-steps li:last-child { padding-bottom: 0; }
+
+  .guide-steps li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: -2px;
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: rgba(255, 0, 60, 0.1);
+    border: 1px solid rgba(255, 0, 60, 0.3);
+    color: var(--accent);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .guide-steps strong { color: var(--white); }
+
+  .cmd-box {
+    margin-top: 12px;
+    display: flex; gap: 10px; align-items: stretch;
+  }
+
+  .cmd-value {
+    flex: 1;
+    font-family: 'Courier New', monospace;
+    font-size: 15px;
+    color: #00E676;
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    word-break: break-all;
+    user-select: all;
+  }
+
+  .copy-btn.small { padding: 0 18px; font-size: 12px; box-shadow: none; }
+
+  .success-actions { margin-top: 28px; text-align: center; }
+
+  .btn-ghost {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase;
+    padding: 14px 36px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--white);
+    border-radius: 4px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-ghost:hover { background: var(--white); color: var(--bg-main); }
+
+  /* ── UNBANY ── */
+  .unban-lookup {
+    max-width: 640px;
+    margin: 0 auto 48px;
+    padding: 32px 36px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.35);
+  }
+
+  .ub-form { display: flex; gap: 12px; align-items: stretch; }
+
+  .ub-input {
+    flex: 1; min-width: 0;
+    font-family: 'Courier New', monospace;
+    font-size: 20px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase;
+    text-align: center;
+    color: var(--white);
+    background: var(--bg-main);
+    border: 1px dashed rgba(255, 0, 60, 0.45);
+    border-radius: 6px;
+    padding: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .ub-input::placeholder { color: rgba(143, 156, 174, 0.45); }
+  .ub-input:focus { border-style: solid; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255, 0, 60, 0.12); }
+
+  .ub-check { padding: 0 32px; white-space: nowrap; }
+  .ub-check:disabled { opacity: 0.6; cursor: wait; transform: none; }
+
+  .ub-msg {
+    margin-top: 16px;
+    font-size: 14px; line-height: 1.6;
+    color: #FF6B8A;
+    text-align: center;
+  }
+
+  .ub-status {
+    margin-top: 24px;
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 20px;
+  }
+
+  .ub-row {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 20px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px; color: var(--text-muted);
+  }
+  .ub-row:last-child { border-bottom: none; }
+  .ub-row strong { color: var(--white); font-weight: 600; text-align: right; word-break: break-word; }
+  .ub-row strong.perm { color: var(--accent); }
+
+  .ub-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 20px;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 40px 60px;
+  }
+
+  .ub-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 32px 24px 28px;
+    text-align: center;
+    display: flex; flex-direction: column;
+    transition: transform 0.3s, border-color 0.3s, opacity 0.3s;
+  }
+  .ub-card:hover { transform: translateY(-4px); border-color: rgba(255,255,255,0.15); }
+  .ub-card.disabled { opacity: 0.45; }
+  .ub-card.disabled:hover { transform: none; border-color: var(--border); }
+
+  .ub-tier {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: 3px; text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .ub-duration {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 30px; font-weight: 700;
+    text-transform: uppercase;
+    color: var(--white);
+    line-height: 1.1;
+    margin-bottom: 18px;
+    white-space: nowrap;
+  }
+  .ub-card.perm .ub-duration { color: var(--accent); text-shadow: 0 0 24px var(--accent-glow); }
+
+  .ub-card .pkg-price { margin-bottom: 14px; }
+
+  .ub-after {
+    font-size: 13px; line-height: 1.55;
+    color: var(--text-muted);
+    min-height: 40px;
+    margin-bottom: 20px;
+    flex-grow: 1;
+  }
+
+  /* aktywny przycisk zakupu wyraźnie wyróżniony – to jest "Kup", nie "Sprawdź" */
+  .ub-card .pkg-btn:not(:disabled) {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--white);
+    box-shadow: 0 4px 18px var(--accent-glow);
+  }
+  .ub-card .pkg-btn:not(:disabled):hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    color: var(--white);
+  }
+  .ub-card:has(.pkg-btn:not(:disabled)) { border-color: rgba(255, 0, 60, 0.35); }
+
+  .ub-hint {
+    padding: 14px 0 10px;
+    text-align: center;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px; font-weight: 700;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .pkg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .pkg-btn:disabled:hover { background: rgba(255, 255, 255, 0.02); color: var(--white); border-color: rgba(255, 255, 255, 0.1); }
+
+  /* ── RESPONSIVENESS ── */
+  @media (max-width: 1024px) {
+    .packages { flex-direction: column; max-width: 460px; gap: 24px; }
+    .features { grid-template-columns: 1fr; gap: 16px; padding-bottom: 60px; }
+    .hero-stats { gap: 40px; }
+    nav { padding: 0 32px; }
+  }
+  @media (max-width: 800px) {
+    nav .nav-logo {display: none;}
+  }
+  @media (max-width: 600px) {
+    nav { padding: 0 20px; height: 64px; }
+    .page { padding-top: 64px; }
+    .nav-logo { font-size: 20px; }
+    .nav-tab { padding: 8px 16px; font-size: 13px; }
+    .hero-stats { flex-direction: column; gap: 24px; }
+    .hero { padding-top: 60px; }
+    .success-card, .guide { padding: 32px 22px; }
+    .code-box, .cmd-box { flex-direction: column; }
+    .copy-btn { padding: 14px 0; }
+    .code-value { font-size: 18px; }
+    .unban-lookup { margin: 0 16px 36px; padding: 24px 20px; }
+    .ub-form { flex-direction: column; }
+    .ub-check { padding: 14px 0; }
+    .ub-input { font-size: 17px; }
+    .ub-grid { padding: 0 16px 48px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/"> 
+    <img class="logo" src="/riotlogo.png" alt="Riot Logo"> 
+  </a> 
+  
+  <div class="nav-logo">RIOT<span>ROLEPLAY</span></div>
+  
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('home', this)">Serwer</button>
+    <button class="nav-tab" onclick="showPage('shop', this)">Sklep</button>
+    <button class="nav-tab" onclick="showPage('unban', this)">Unbany</button>
+  </div>
+</nav>
+
+<!-- HOME -->
+<div id="page-home" class="page active">
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-badge">FiveM Roleplay PL</div>
+    <h1 class="hero-logo">
+      RIOT <span>ROLEPLAY</span>
+    </h1>
+    <p class="hero-desc">
+      Wejdź do świata, w którym reguły pisze ulica.
+      Wybierz stronę — mundur, gangsterski szmal albo własny biznes.
+      Każda decyzja zostawia ślad. Twoja historia zaczyna się tutaj.
+    </p>
+    <div class="hero-stats">
+      <div class="stat">
+        <div class="stat-num">100<span>+</span></div>
+        <div class="stat-label">Graczy online</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">4</div>
+        <div class="stat-label">Frakcje</div>
+      </div>
+    </div>
+    <button class="btn-primary" onclick="showPage('shop', document.querySelectorAll('.nav-tab')[1])">
+      Zasil konto RC
+    </button>
+  </section>
+
+  <div class="features">
+    <div class="feature">
+      <svg class="feature-icon-svg" viewBox="0 0 24 24"><path d="M19 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h4l3 3 3-3h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-5 16h-4v-2h4v2zm0-4h-4v-2h4v2zm0-4h-4V6h4v2z"/></svg>
+      <div class="feature-title">Otwarty świat</div>
+      <p class="feature-text">W pełni odwzorowana metropolia z dziesiątkami lokacji — od luksusowych penthouse'ów po podziemne kanały.</p>
+    </div>
+    <div class="feature">
+      <svg class="feature-icon-svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+      <div class="feature-title">Głęboki RP</div>
+      <p class="feature-text">Własna ekonomia, frakcje z hierarchią i fabułą prowadzoną przez admin-team 24/7. Tu liczy się każde słowo.</p>
+    </div>
+    <div class="feature">
+      <svg class="feature-icon-svg" viewBox="0 0 24 24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.3C.5 6.7.9 9.8 2.9 11.8c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.1z"/></svg>
+      <div class="feature-title">Nowe skrypty</div>
+      <p class="feature-text">Autorskie mechaniki niedostępne nigdzie indziej — system reputacji, kontrakty, nielegalny handel i wiele więcej.</p>
+    </div>
+  </div>
+</div>
+
+<!-- SHOP -->
+<div id="page-shop" class="page">
+  <div class="shop-header">
+    <div class="shop-eyebrow">Oficjalny sklep serwera</div>
+    <h2 class="shop-title">Wirtualna waluta RIOT COINS</h2>
+    <p class="shop-desc">Wspieraj rozwój projektu i odblokuj unikalne opcje personalizacji postaci oraz dodatki kosmetyczne RP.</p>
+  </div>
+
+  <div class="packages">
+
+    <!-- PAKIET TESTOWY (widoczny tylko gdy TEST = true w index.js) -->
+    <div class="pkg" id="pkg-test" style="display:none;">
+      <div class="pkg-top">
+        <div class="pkg-tier">Tylko tryb testowy</div>
+        <div class="pkg-name">Test</div>
+        <div class="pkg-tagline">Do sprawdzania działania sklepu</div>
+        <div class="pkg-coins">
+          <span class="pkg-amount">100</span>
+          <span class="pkg-unit">RC</span>
+        </div>
+      </div>
+      <div class="pkg-body">
+        <ul class="pkg-perks">
+          <li>100 RIOT Coinów na konto</li>
+          <li>Pakiet znika po wyłączeniu trybu testowego</li>
+        </ul>
+        <div class="pkg-price">
+          <span class="price-amount"><span class="price-cur">PLN</span> 2</span>
+        </div>
+        <button class="pkg-btn" onclick="openModal('test', 'Test', '100 RC', '2 PLN')">Wybierz pakiet</button>
+      </div>
+    </div>
+
+    <!-- PAKIET I -->
+    <div class="pkg">
+      <div class="pkg-top">
+        <div class="pkg-tier">Pakiet Obywatelski</div>
+        <div class="pkg-name">Nowicjusz</div>
+        <div class="pkg-tagline">Idealny na start w mieście</div>
+        <div class="pkg-coins">
+          <span class="pkg-amount">1 000</span>
+          <span class="pkg-unit">RC</span>
+        </div>
+      </div>
+      <div class="pkg-body">
+        <ul class="pkg-perks">
+          <li>1 000 RIOT Coinów na konto</li>
+          <li>Kupno pakietów</li>
+          
+          
+        </ul>
+        <div class="pkg-price">
+          <span class="price-amount"><span class="price-cur">PLN</span> 29</span>
+          <div class="per-coin">0,030 zł / RC</div>
+        </div>
+        <button class="pkg-btn" onclick="openModal('nowicjusz', 'Nowicjusz', '1 000 RC', '29 PLN')">Wybierz pakiet</button>
+      </div>
+    </div>
+
+    <!-- PAKIET II FEATURED -->
+    <div class="pkg featured">
+      <div class="pkg-ribbon">Najczęstszy wybór</div>
+      <div class="pkg-top">
+        <div class="pkg-tier">Pakiet Zaawansowany</div>
+        <div class="pkg-name">Zaangażowany</div>
+        <div class="pkg-tagline">Optymalny stosunek wartości do ceny</div>
+        <div class="pkg-coins">
+          <span class="pkg-amount">5 000</span>
+          <span class="pkg-unit">RC</span>
+        </div>
+      </div>
+      <div class="pkg-body">
+        <ul class="pkg-perks">
+          <li>5 000 RIOT Coinów na konto</li>
+          <li>Ranga „Wspierający" na Discord (za zgłoszeniem)</li>
+          <li>Kupno aut</li>
+          
+        </ul>
+        <div class="pkg-price">
+          <span class="price-amount"><span class="price-cur">PLN</span> 99</span>
+          <div class="per-coin">0,020 zł / RC — <span class="discount">oszczędzasz 33%</span></div>
+        </div>
+        <button class="pkg-btn" onclick="openModal('zaangazowany', 'Zaangażowany', '5 000 RC', '99 PLN')">Wybierz pakiet</button>
+      </div>
+    </div>
+
+    <!-- PAKIET III -->
+    <div class="pkg">
+      <div class="pkg-top">
+        <div class="pkg-tier">Pakiet Premium</div>
+        <div class="pkg-name">Pro</div>
+        <div class="pkg-tagline">Maksymalny pakiet korzyści</div>
+        <div class="pkg-coins">
+          <span class="pkg-amount">10 000</span>
+          <span class="pkg-unit">RC</span>
+        </div>
+      </div>
+      <div class="pkg-body">
+        <ul class="pkg-perks">
+          <li>10 000 RIOT Coinów na konto</li>
+          <li>Unikalna ranga „Zaangażowany" na discord(za zgłoszniem)</li>
+          <li>Dużo rzeczy mozna kupić</li>
+          
+        </ul>
+        <div class="pkg-price">
+          <span class="price-amount"><span class="price-cur">PLN</span> 179</span>
+          <div class="per-coin">0,018 zł / RC — <span class="discount">oszczędzasz 40%</span></div>
+        </div>
+        <button class="pkg-btn" onclick="openModal('pro', 'Pro', '10 000 RC', '179 PLN')">Wybierz pakiet</button>
+      </div>
+    </div>
+
+    <!-- PAKIET IV -->
+    <div class="pkg pkgGOLD">
+      <div class="pkg-top">
+        <div class="pkg-tier">Pakiet Ultra</div>
+        <div class="pkg-name">BOSS</div>
+        <div class="pkg-tagline">Maksymalny pakiet korzyści +</div>
+        <div class="pkg-coins">
+          <span class="pkg-amount">30 000</span>
+          <span class="pkg-unit">RC</span>
+        </div>
+      </div>
+      <div class="pkg-body">
+        <ul class="pkg-perks pkg-perksGOLD">
+          <li>30 000 RIOT Coinów na konto</li>
+          <li>Zostajesz profesjonalią tego serwera, stać cię już na coraz więcej</li>
+          <li>Możesz kupić każdy pakiet</li>
+         <li>Unikalna ranga „Zaangażowany" na discord(za zgłoszniem)</li>
+          
+        </ul>
+        <div class="pkg-price">
+          <span class="price-amount"><span class="price-cur">PLN</span> 499</span>
+          <div class="per-coin">0,015 zł / RC — <span class="discount">oszczędzasz 50%</span></div>
+        </div>
+        <button class="pkg-btn pkg-btnGOLD" onclick="openModal('boss', 'Boss', '30 000 RC', '499 PLN')">Wybierz pakiet</button>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="shop-note">
+    Bezpieczeństwo transakcji gwarantuje szyfrowana bramka płatnicza.<br>
+    Po zakupie otrzymasz kod, który wpisujesz w grze komendą <strong>/kod</strong>.<br>
+    Potrzebujesz pomocy? Skontaktuj się z nami poprzez Discord lub e-mail: <strong>riotrpofficial@gmail.com</strong>
+  </p>
+</div>
+
+<!-- UNBANY -->
+<div id="page-unban" class="page">
+  <div class="shop-header">
+    <div class="shop-eyebrow">Odwołania od bana</div>
+    <h2 class="shop-title">Wykup unbana</h2>
+    <p class="shop-desc">Wpisz kod bana widoczny na ekranie przy próbie wejścia na serwer. Zakupiony pakiet skraca ban o wybrany czas — jeśli ban jest krótszy, zostaje zdjęty w całości.</p>
+  </div>
+
+  <div class="unban-lookup">
+    <label class="code-label" for="ub-code" style="margin-top:0;">Kod bana</label>
+    <form class="ub-form" onsubmit="lookupBan(event)">
+      <input id="ub-code" class="ub-input" type="text" placeholder="XXXX-XXXX-XXXX" maxlength="14"
+             autocomplete="off" autocapitalize="characters" spellcheck="false" oninput="onBanCodeInput(this)">
+      <button class="btn-primary ub-check" id="ub-check-btn" type="submit">Sprawdź</button>
+    </form>
+    <div class="ub-msg hidden" id="ub-msg"></div>
+
+    <div class="ub-status hidden" id="ub-status">
+      <div class="ub-row"><span>Nick</span><strong id="ub-st-name">—</strong></div>
+      <div class="ub-row"><span>Powód</span><strong id="ub-st-reason">—</strong></div>
+      <div class="ub-row"><span>Pozostało do końca bana</span><strong id="ub-st-time">—</strong></div>
+      <div class="ub-hint">Wybierz pakiet poniżej i kliknij „Kup unban” ↓</div>
+    </div>
+  </div>
+
+  <div class="ub-grid" id="ub-grid"></div>
+
+  <p class="shop-note">
+    Po opłaceniu ban jest skracany automatycznie — nie musisz wpisywać żadnej komendy w grze.<br>
+    Pakiety czasowe nie działają na ban permanentny — tu potrzebny jest Unban permanentny.<br>
+    Problem z zakupem? Napisz do nas na Discordzie lub e-mail: <strong>riotrpofficial@gmail.com</strong>
+  </p>
+</div>
+
+<!-- SUCCESS (kod po zakupie) -->
+<div id="page-success" class="page">
+  <div class="success-wrap">
+
+    <!-- ładowanie -->
+    <div class="success-card" id="order-loading">
+      <div class="success-title">Weryfikujemy płatność…</div>
+      <p class="success-sub">Chwilę, generujemy Twój kod.</p>
+    </div>
+
+    <!-- błąd -->
+    <div class="success-card hidden" id="order-error">
+      <div class="success-icon err">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+      </div>
+      <div class="success-title">Coś poszło nie tak</div>
+      <p class="success-sub" id="order-error-text">—</p>
+      <div class="success-actions">
+        <button class="btn-ghost" onclick="location.reload()">Spróbuj ponownie</button>
+      </div>
+    </div>
+
+    <!-- unban: wynik zakupu -->
+    <div class="hidden" id="unban-ok">
+      <div class="success-card">
+        <div class="success-icon" id="unban-icon">
+          <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        </div>
+        <div class="success-title" id="unban-title">—</div>
+        <p class="success-sub" id="unban-text">—</p>
+
+        <div class="test-note hidden" id="unban-test-note" style="margin-top:20px;">
+          Tryb testowy — płatność została pominięta
+        </div>
+
+        <p class="warn-note" id="unban-note" style="text-align:center;"></p>
+        <div class="success-actions">
+          <button class="btn-ghost" onclick="showPage('home', document.querySelectorAll('.nav-tab')[0])">Wróć na stronę główną</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- sukces -->
+    <div class="hidden" id="order-ok">
+      <div class="success-card">
+        <div class="success-icon">
+          <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        </div>
+        <div class="success-title">Dziękujemy za zakup!</div>
+        <p class="success-sub">
+          Pakiet <strong id="order-pkg">—</strong> (<strong id="order-coins">—</strong>) jest gotowy do odebrania.
+        </p>
+
+        <div class="test-note hidden" id="order-test-note" style="margin-top:20px;">
+          Tryb testowy — płatność została pominięta
+        </div>
+
+        <div class="code-label">Twój kod</div>
+        <div class="code-box">
+          <div class="code-value" id="order-code">—</div>
+          <button class="copy-btn" id="copy-code-btn" onclick="copyText('order-code', 'copy-code-btn', 'Kopiuj kod')">Kopiuj kod</button>
+        </div>
+        <p class="warn-note">
+          Zapisz ten kod i nie udostępniaj go nikomu. Kod jest jednorazowy — po wpisaniu w grze traci ważność.
+          Możesz też wrócić na tę stronę później, korzystając z linku w przeglądarce.
+        </p>
+      </div>
+
+      <div class="guide">
+        <div class="guide-title">Jak odebrać RIOT Coins?</div>
+        <ol class="guide-steps">
+          <li><strong>Wejdź na serwer FiveM</strong> RIOT Roleplay i załaduj się swoją postacią.</li>
+          <li><strong>Otwórz czat</strong> w grze (domyślnie klawisz <strong>T</strong>).</li>
+          <li>
+            <strong>Wpisz komendę</strong> z kodem i zatwierdź Enterem:
+            <div class="cmd-box">
+              <div class="cmd-value" id="order-cmd">/kod —</div>
+              <button class="copy-btn small" id="copy-cmd-btn" onclick="copyText('order-cmd', 'copy-cmd-btn', 'Kopiuj')">Kopiuj</button>
+            </div>
+          </li>
+          <li><strong>Gotowe!</strong> Coiny pojawią się na Twoim koncie. W razie problemów napisz do nas na Discordzie.</li>
+        </ol>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <svg class="modal-icon-svg" viewBox="0 0 24 24"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5 0.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+    <div class="modal-title">Podsumowanie</div>
+    <div class="modal-body">Zamawiasz zestaw waluty:</div>
+    <div class="modal-pkg" id="modal-pkg-name">—</div>
+    <div class="modal-body" id="modal-pkg-coins">—</div>
+    <div class="modal-price" id="modal-pkg-price">—</div>
+    <div class="test-note hidden" id="modal-test-note">
+      Tryb testowy — płatność zostanie pominięta
+    </div>
+    <div class="modal-body" style="margin-bottom:28px; font-size:12px;">
+      Po zatwierdzeniu zostaniesz przekierowany do systemu bezpiecznych płatności internetowych.
+    </div>
+    <button class="modal-confirm" onclick="payWithStripe()">Przejdź do płatności</button>
+  </div>
+</div>
+
+<!-- MODAL UNBAN -->
+<div class="modal-overlay" id="modal-unban" onclick="closeUnbanModalOutside(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeUnbanModal()">✕</button>
+    <svg class="modal-icon-svg" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+    <div class="modal-title">Podsumowanie</div>
+    <div class="modal-body">Wykupujesz:</div>
+    <div class="modal-pkg" id="ub-modal-pkg">—</div>
+    <div class="modal-body" id="ub-modal-code">—</div>
+    <div class="modal-body" id="ub-modal-after" style="margin-top:6px;">—</div>
+    <div class="modal-price" style="margin-top:18px;" id="ub-modal-price">—</div>
+    <div class="test-note hidden" id="ub-modal-test-note">
+      Tryb testowy — płatność zostanie pominięta
+    </div>
+    <div class="modal-body" style="margin-bottom:28px; font-size:12px;">
+      Po zatwierdzeniu zostaniesz przekierowany do systemu bezpiecznych płatności internetowych.
+    </div>
+    <button class="modal-confirm" id="ub-modal-confirm" onclick="payUnban()">Przejdź do płatności</button>
+  </div>
+</div>
+
+<script>
+  let selectedPackageId = '';
+  let shopTestMode = false;
+
+  function showPage(id, btn) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('page-' + id).classList.add('active');
+    if (btn) btn.classList.add('active');
+    if (id !== 'success' && location.pathname !== '/') {
+      history.replaceState(null, '', '/');
     }
-    entry.count++;
-    if (entry.count > limit) {
-      return res.status(429).json({ success: false, error: 'Zbyt wiele prób. Spróbuj ponownie za chwilę.' });
-    }
-    next();
-  };
-}
-const unbanLimiter = createRateLimiter(20, 60 * 1000);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT || 3306,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  waitForConnections: true,
-  connectionLimit: 10,
-});
+  function openModal(id, name, coins, priceText) {
+    selectedPackageId = id;
 
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    document.getElementById('modal-pkg-name').textContent = 'Pakiet ' + name;
+    document.getElementById('modal-pkg-coins').textContent = coins;
+    document.getElementById('modal-pkg-price').textContent = priceText;
+    document.getElementById('modal-test-note').classList.toggle('hidden', !shopTestMode);
+    document.getElementById('modal').classList.add('open');
+  }
 
-const app = express();
-app.set('trust proxy', 1); // Render stoi za proxy
+  function closeModal() {
+    document.getElementById('modal').classList.remove('open');
+  }
 
-app.use(cors());
-app.use(express.json());
+  function closeModalOutside(e) {
+    if (e.target === document.getElementById('modal')) closeModal();
+  }
 
-function getBaseUrl(req) {
-  return process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
-}
+  async function payWithStripe() {
+    const confirmBtn = document.querySelector('.modal-confirm');
+    confirmBtn.textContent = 'Ładowanie...';
+    confirmBtn.disabled = true;
 
-// Generowanie kodu, np. riot3fa91c0b7d2e4a68
-function generateCode() {
-  return 'riot' + crypto.randomBytes(8).toString('hex');
-}
-
-// ── Strona i pliki (tylko to, co potrzebne – nie wystawiamy całego folderu) ──
-const sendIndex = (req, res) => res.sendFile(path.join(__dirname, 'index.html'));
-app.get('/', sendIndex);
-app.get('/success', sendIndex); // strona z kodem po zakupie
-app.get('/riotlogo.png', (req, res) =>
-  res.sendFile(path.join(__dirname, 'riotlogo.png'))
-);
-
-// Informacja dla frontendu, czy tryb testowy jest włączony
-app.get('/api/config', (req, res) => {
-  res.json({ test: TEST, unbanPackages: unbanPackageList() });
-});
-
-// ── Tworzenie sesji płatności ──
-app.post('/create-checkout-session', async (req, res) => {
-  try {
-    const { packageId } = req.body;
-    const pkg = getPackage(packageId);
-    if (!pkg) return res.status(400).json({ error: 'Nieznany pakiet.' });
-
-    // TRYB TESTOWY – pomijamy Stripe i od razu przekierowujemy na stronę z kodem
-    if (TEST) {
-      const fakeSessionId = 'test_' + crypto.randomBytes(8).toString('hex');
-      return res.json({
-        url: `/success?session_id=${fakeSessionId}&package=${encodeURIComponent(packageId)}`,
-        test: true,
+    try {
+      const response = await fetch('/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ packageId: selectedPackageId })
       });
-    }
 
-    const base = getBaseUrl(req);
-    const session = await stripe.checkout.sessions.create({
-      managed_payments: { enabled: false },
-      line_items: [
-        {
-          price_data: {
-            currency: 'pln',
-            product_data: { name: `Pakiet ${pkg.name} (${pkg.coins} RC)` },
-            unit_amount: Math.round(pkg.price * 100),
-          },
-          quantity: 1,
-        },
-      ],
-      mode: 'payment',
-      metadata: { packageId },
-      success_url: `${base}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${base}/`,
-    });
-
-    res.json({ url: session.url });
-  } catch (error) {
-    console.error('Błąd tworzenia sesji Stripe:', error);
-    res.status(500).json({ error: 'Nie udało się utworzyć płatności.' });
-  }
-});
-
-// ── Realizacja zamówienia: tworzy kod i wpisuje go do bazy (tylko raz na zamówienie) ──
-async function fulfillOrder(sessionId, packageId, pkg, isTest) {
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
-
-    const [existing] = await conn.query(
-      'SELECT code, coins FROM riot_orders WHERE session_id = ? FOR UPDATE',
-      [sessionId]
-    );
-    if (existing.length > 0) {
-      await conn.commit();
-      return existing[0];
-    }
-
-    const code = generateCode();
-    await conn.query(
-      'INSERT INTO riot_orders (session_id, code, coins, package_id, is_test) VALUES (?, ?, ?, ?, ?)',
-      [sessionId, code, pkg.coins, packageId, isTest ? 1 : 0]
-    );
-    await conn.query(
-      'INSERT INTO riot_coins (`code`, `coins`) VALUES (?, ?)',
-      [code, pkg.coins]
-    );
-
-    await conn.commit();
-    return { code, coins: pkg.coins };
-  } catch (err) {
-    await conn.rollback();
-    // dwa równoległe odświeżenia strony – drugi dostaje ten sam kod
-    if (err.code === 'ER_DUP_ENTRY') {
-      const [rows] = await pool.query(
-        'SELECT code, coins FROM riot_orders WHERE session_id = ?',
-        [sessionId]
-      );
-      if (rows.length > 0) return rows[0];
-    }
-    throw err;
-  } finally {
-    conn.release();
-  }
-}
-
-// ── Pobranie kodu po zakupie (wywoływane przez stronę /success) ──
-app.get('/api/order', async (req, res) => {
-  try {
-    const sessionId = String(req.query.session_id || '');
-    let packageId;
-    let isTest = false;
-
-    if (sessionId.startsWith('test_')) {
-      if (!TEST) return res.status(403).json({ success: false, error: 'Tryb testowy jest wyłączony.' });
-      if (!/^test_[a-f0-9]{16}$/.test(sessionId)) {
-        return res.status(400).json({ success: false, error: 'Nieprawidłowy identyfikator zamówienia.' });
+      const data = await response.json();
+      
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert('Błąd podczas generowania płatności: ' + (data.error || 'Spróbuj ponownie'));
+        confirmBtn.textContent = 'Przejdź do płatności';
+        confirmBtn.disabled = false;
       }
-      packageId = String(req.query.package || '');
-      isTest = true;
-    } else if (/^cs_[A-Za-z0-9_]+$/.test(sessionId)) {
-      const session = await stripe.checkout.sessions.retrieve(sessionId);
-      if (session.payment_status !== 'paid') {
-        return res.status(402).json({
-          success: false,
-          error: 'Płatność nie została jeszcze potwierdzona. Odśwież stronę za chwilę.',
-        });
+    } catch (error) {
+      console.error('Błąd:', error);
+      alert('Nie udało się połączyć z serwerem płatności.');
+      confirmBtn.textContent = 'Przejdź do płatności';
+      confirmBtn.disabled = false;
+    }
+  }
+
+  /* ── Kopiowanie do schowka ── */
+  async function copyText(sourceId, btnId, defaultLabel) {
+    const text = document.getElementById(sourceId).textContent.trim();
+    const btn = document.getElementById(btnId);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    btn.textContent = 'Skopiowano ✓';
+    btn.classList.add('done');
+    setTimeout(() => {
+      btn.textContent = defaultLabel;
+      btn.classList.remove('done');
+    }, 2000);
+  }
+
+  /* ── Strona z kodem po zakupie ── */
+  function showOrderError(msg) {
+    document.getElementById('order-loading').classList.add('hidden');
+    document.getElementById('order-ok').classList.add('hidden');
+    document.getElementById('unban-ok').classList.add('hidden');
+    document.getElementById('order-error-text').textContent = msg;
+    document.getElementById('order-error').classList.remove('hidden');
+  }
+
+  async function loadOrder() {
+    const params = new URLSearchParams(location.search);
+    if (params.get('type') === 'unban') return loadUnbanOrder(params);
+    const sessionId = params.get('session_id');
+    if (!sessionId) {
+      showOrderError('Brak identyfikatora zamówienia.');
+      return;
+    }
+
+    const qs = new URLSearchParams({ session_id: sessionId });
+    if (params.get('package')) qs.set('package', params.get('package'));
+
+    try {
+      const res = await fetch('/api/order?' + qs.toString());
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        showOrderError(data.error || 'Nie udało się pobrać kodu.');
+        return;
       }
-      packageId = session.metadata && session.metadata.packageId;
-    } else {
-      return res.status(400).json({ success: false, error: 'Nieprawidłowy identyfikator zamówienia.' });
+
+      document.getElementById('order-pkg').textContent = data.packageName;
+      document.getElementById('order-coins').textContent =
+        Number(data.coins).toLocaleString('pl-PL') + ' RC';
+      document.getElementById('order-code').textContent = data.code;
+      document.getElementById('order-cmd').textContent = '/kod ' + data.code;
+      document.getElementById('order-test-note').classList.toggle('hidden', !data.test);
+
+      document.getElementById('order-loading').classList.add('hidden');
+      document.getElementById('order-ok').classList.remove('hidden');
+    } catch (err) {
+      console.error(err);
+      showOrderError('Nie udało się połączyć z serwerem. Odśwież stronę.');
     }
-
-    const pkg = getPackage(packageId);
-    if (!pkg) return res.status(400).json({ success: false, error: 'Nieznany pakiet.' });
-
-    const order = await fulfillOrder(sessionId, packageId, pkg, isTest);
-    res.json({
-      success: true,
-      code: order.code,
-      coins: order.coins,
-      packageName: pkg.name,
-      test: isTest,
-    });
-  } catch (error) {
-    console.error('Błąd realizacji zamówienia:', error);
-    res.status(500).json({ success: false, error: 'Błąd serwera. Skontaktuj się z administracją.' });
   }
-});
 
-// ════════════════════════════════════════════════════════════
-//  UNBANY – endpointy
-// ════════════════════════════════════════════════════════════
+  /* ── UNBANY ── */
+  let unbanPackages = [];
+  let currentBanCode = '';
+  let currentBan = null;
+  let currentPreview = {};
+  let selectedUnban = null;
 
-// Stan bana po kodzie. lock = true blokuje wiersz (SELECT ... FOR UPDATE) wewnątrz transakcji.
-async function getBanByCode(db, code, lock = false) {
-  const [rows] = await db.query(
-    `SELECT id, name, reason, active,
-            (expires_at IS NULL) AS perm,
-            (expires_at IS NOT NULL AND expires_at <= NOW()) AS expired,
-            CEIL(TIMESTAMPDIFF(SECOND, NOW(), expires_at) / 60) AS minutes_left
-       FROM alion_bans
-      WHERE unban_code = ?
-      LIMIT 1${lock ? ' FOR UPDATE' : ''}`,
-    [code]
-  );
-  if (rows.length === 0) return null;
-
-  const r = rows[0];
-  const perm = Number(r.perm) === 1;
-  const isBanned = Number(r.active) === 1 && (perm || Number(r.expired) !== 1);
-  return {
-    id: r.id,
-    name: r.name,
-    reason: r.reason,
-    perm,
-    isBanned,
-    minutesLeft: perm ? null : Math.max(Number(r.minutes_left) || 0, 0),
-  };
-}
-
-// Zamówienia unbanów (osobna tabela, żeby odświeżenie strony nie skracało bana drugi raz)
-async function ensureUnbanTables() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS riot_unban_orders (
-      id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-      session_id VARCHAR(255) NOT NULL,
-      unban_code VARCHAR(20) NOT NULL,
-      ban_id INT NULL,
-      package_id VARCHAR(20) NOT NULL,
-      result VARCHAR(20) NOT NULL,
-      remaining_minutes INT NULL,
-      is_test TINYINT(1) NOT NULL DEFAULT 0,
-      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY uniq_session (session_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-}
-
-// Sprawdzenie bana po kodzie (strona wywołuje to po wpisaniu kodu)
-app.post('/api/ban-lookup', unbanLimiter, async (req, res) => {
-  try {
-    const code = normalizeBanCode(req.body && req.body.code);
-    if (!code) {
-      return res.status(400).json({ success: false, error: 'Nieprawidłowy format kodu. Przykład: ABCD-EFGH-JKLM' });
-    }
-
-    const ban = await getBanByCode(pool, code);
-    if (!ban) return res.status(404).json({ success: false, error: 'Nie znaleziono bana o takim kodzie.' });
-    if (!ban.isBanned) {
-      return res.status(409).json({ success: false, error: 'Ten ban jest już nieaktywny — możesz wejść na serwer.' });
-    }
-
-    res.json({
-      success: true,
-      code,
-      ban: { name: ban.name, reason: ban.reason, perm: ban.perm, minutesLeft: ban.minutesLeft },
-      packages: unbanPackageList().map((p) => ({ id: p.id, ...previewUnban(p, ban) })),
-    });
-  } catch (error) {
-    console.error('Błąd sprawdzania bana:', error);
-    res.status(500).json({ success: false, error: 'Błąd serwera. Spróbuj ponownie.' });
+  function formatDuration(min) {
+    if (!min || min <= 0) return '0 min';
+    const d = Math.floor(min / 1440);
+    const h = Math.floor((min % 1440) / 60);
+    const m = min % 60;
+    const parts = [];
+    if (d) parts.push(d + (d === 1 ? ' dzień' : ' dni'));
+    if (h) parts.push(h + ' godz.');
+    if (m && !d) parts.push(m + ' min');
+    return parts.join(' ') || '0 min';
   }
-});
 
-// Tworzenie płatności za unban
-app.post('/create-unban-session', unbanLimiter, async (req, res) => {
-  try {
-    const code = normalizeBanCode(req.body && req.body.code);
-    const pkg = getUnbanPackage(req.body && req.body.packageId);
-    if (!code) return res.status(400).json({ error: 'Nieprawidłowy kod bana.' });
-    if (!pkg) return res.status(400).json({ error: 'Nieznany pakiet.' });
+  function formatBanCodeInput(value) {
+    const raw = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+    return (raw.match(/.{1,4}/g) || []).join('-');
+  }
 
-    // Walidacja PRZED płatnością – żeby nikt nie zapłacił za pakiet, który nic nie zrobi
-    const ban = await getBanByCode(pool, code);
-    if (!ban || !ban.isBanned) {
-      return res.status(409).json({ error: 'Ten ban nie istnieje lub jest już nieaktywny.' });
+  function makeEl(tag, cls, text) {
+    const el = document.createElement(tag);
+    if (cls) el.className = cls;
+    if (text !== undefined) el.textContent = text;
+    return el;
+  }
+
+  function renderUnbanCards() {
+    const grid = document.getElementById('ub-grid');
+    if (!grid) return;
+    grid.textContent = '';
+
+    unbanPackages.forEach(pkg => {
+      const card = makeEl('div', 'ub-card' + (pkg.perm ? ' perm' : ''));
+      card.id = 'ub-card-' + pkg.id;
+
+      card.appendChild(makeEl('div', 'ub-tier', 'Unban'));
+      card.appendChild(makeEl('div', 'ub-duration', pkg.label));
+
+      const price = makeEl('div', 'pkg-price');
+      const amount = makeEl('span', 'price-amount');
+      amount.appendChild(makeEl('span', 'price-cur', 'PLN'));
+      amount.appendChild(document.createTextNode(' ' + pkg.price));
+      price.appendChild(amount);
+      card.appendChild(price);
+
+      card.appendChild(makeEl('div', 'ub-after'));
+
+      const btn = makeEl('button', 'pkg-btn', 'Wpisz kod bana');
+      btn.type = 'button';
+      btn.disabled = true;
+      btn.addEventListener('click', () => openUnbanModal(pkg.id));
+      card.appendChild(btn);
+
+      grid.appendChild(card);
+    });
+
+    updateUnbanCards();
+  }
+
+  function updateUnbanCards() {
+    unbanPackages.forEach(pkg => {
+      const card = document.getElementById('ub-card-' + pkg.id);
+      if (!card) return;
+      const after = card.querySelector('.ub-after');
+      const btn = card.querySelector('.pkg-btn');
+      const p = currentPreview[pkg.id];
+
+      card.classList.toggle('disabled', !!currentBan && !(p && p.applicable));
+
+      if (!currentBan) {
+        after.textContent = pkg.perm
+          ? 'Zdejmuje ban w całości — także permanentny'
+          : 'Skraca ban o ' + formatDuration(pkg.minutes);
+        btn.disabled = true;
+        btn.textContent = 'Wpisz kod bana';
+      } else if (!p || !p.applicable) {
+        after.textContent = 'Niedostępny dla bana permanentnego';
+        btn.disabled = true;
+        btn.textContent = 'Niedostępny';
+      } else if (p.result === 'removed') {
+        after.textContent = 'Ban zostanie zdjęty w całości';
+        btn.disabled = false;
+        btn.textContent = 'Kup unban';
+      } else {
+        after.textContent = 'Po zakupie zostanie: ' + formatDuration(p.remainingMinutes);
+        btn.disabled = false;
+        btn.textContent = 'Kup unban';
+      }
+    });
+  }
+
+  function setUnbanMsg(text) {
+    const el = document.getElementById('ub-msg');
+    el.textContent = text || '';
+    el.classList.toggle('hidden', !text);
+  }
+
+  function resetUnbanLookup() {
+    currentBan = null;
+    currentBanCode = '';
+    currentPreview = {};
+    document.getElementById('ub-status').classList.add('hidden');
+    updateUnbanCards();
+  }
+
+  function onBanCodeInput(input) {
+    input.value = formatBanCodeInput(input.value);
+    setUnbanMsg('');
+    if (currentBan && input.value !== currentBanCode) resetUnbanLookup();
+  }
+
+  function showBanStatus() {
+    document.getElementById('ub-st-name').textContent = currentBan.name || '—';
+    document.getElementById('ub-st-reason').textContent = currentBan.reason || '—';
+    const time = document.getElementById('ub-st-time');
+    time.textContent = currentBan.perm ? 'Permanentny' : formatDuration(currentBan.minutesLeft);
+    time.classList.toggle('perm', !!currentBan.perm);
+    const status = document.getElementById('ub-status');
+    status.classList.remove('hidden');
+
+    // przewiń tak, żeby od razu były widoczne dane bana i pakiety do kupienia
+    const y = status.getBoundingClientRect().top + window.scrollY - 100;
+    window.scrollTo({ top: Math.max(y, 0), behavior: 'smooth' });
+  }
+
+  async function lookupBan(e) {
+    e.preventDefault();
+    const input = document.getElementById('ub-code');
+    const btn = document.getElementById('ub-check-btn');
+    const code = formatBanCodeInput(input.value);
+
+    setUnbanMsg('');
+    resetUnbanLookup();
+    if (code.replace(/-/g, '').length !== 12) {
+      setUnbanMsg('Wpisz pełny kod bana (12 znaków).');
+      return;
     }
-    if (!previewUnban(pkg, ban).applicable) {
-      return res.status(409).json({ error: 'Ten pakiet nie działa na ban permanentny. Wybierz Unban permanentny.' });
-    }
 
-    // TRYB TESTOWY – pomijamy Stripe
-    if (TEST) {
-      const fakeSessionId = 'test_' + crypto.randomBytes(8).toString('hex');
-      return res.json({
-        url: `/success?type=unban&session_id=${fakeSessionId}&package=${encodeURIComponent(pkg.id)}&code=${encodeURIComponent(code)}`,
-        test: true,
+    btn.disabled = true;
+    btn.textContent = 'Sprawdzam...';
+    try {
+      const res = await fetch('/api/ban-lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code })
       });
-    }
-
-    const base = getBaseUrl(req);
-    const session = await stripe.checkout.sessions.create({
-      managed_payments: { enabled: false },
-      line_items: [
-        {
-          price_data: {
-            currency: 'pln',
-            product_data: { name: `${pkg.name} (kod bana ${code})` },
-            unit_amount: Math.round(pkg.price * 100),
-          },
-          quantity: 1,
-        },
-      ],
-      mode: 'payment',
-      metadata: { type: 'unban', packageId: pkg.id, banCode: code },
-      success_url: `${base}/success?session_id={CHECKOUT_SESSION_ID}&type=unban`,
-      cancel_url: `${base}/`,
-    });
-
-    res.json({ url: session.url });
-  } catch (error) {
-    console.error('Błąd tworzenia sesji unbana:', error);
-    res.status(500).json({ error: 'Nie udało się utworzyć płatności.' });
-  }
-});
-
-// Realizacja: skraca / zdejmuje ban (tylko raz na zamówienie)
-async function fulfillUnban(sessionId, code, pkg, isTest) {
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
-
-    const [existing] = await conn.query(
-      'SELECT result, remaining_minutes, package_id FROM riot_unban_orders WHERE session_id = ? FOR UPDATE',
-      [sessionId]
-    );
-    if (existing.length > 0) {
-      await conn.commit();
-      return existing[0];
-    }
-
-    const ban = await getBanByCode(conn, code, true);
-    let result = 'no_effect'; // ban zniknął / wygasł między płatnością a realizacją
-    let remaining = null;
-
-    if (ban && ban.isBanned) {
-      const preview = previewUnban(pkg, ban);
-      if (preview.applicable && preview.result === 'removed') {
-        await conn.query(
-          'UPDATE alion_bans SET active = 0, unbanned_by = ?, unbanned_at = NOW() WHERE id = ?',
-          [`Sklep WWW (${pkg.id})`, ban.id]
-        );
-        result = 'removed';
-      } else if (preview.applicable) {
-        await conn.query(
-          'UPDATE alion_bans SET expires_at = DATE_SUB(expires_at, INTERVAL ? MINUTE) WHERE id = ?',
-          [pkg.minutes, ban.id]
-        );
-        result = 'reduced';
-        remaining = preview.remainingMinutes;
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setUnbanMsg(data.error || 'Nie udało się sprawdzić bana.');
+        return;
       }
+
+      currentBanCode = data.code;
+      currentBan = data.ban;
+      currentPreview = {};
+      data.packages.forEach(p => { currentPreview[p.id] = p; });
+      showBanStatus();
+      updateUnbanCards();
+    } catch (err) {
+      console.error(err);
+      setUnbanMsg('Nie udało się połączyć z serwerem.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Sprawdź';
+    }
+  }
+
+  function openUnbanModal(id) {
+    const pkg = unbanPackages.find(p => p.id === id);
+    const p = currentPreview[id];
+    if (!pkg || !currentBan || !p || !p.applicable) return;
+
+    selectedUnban = pkg;
+    document.getElementById('ub-modal-pkg').textContent = pkg.name;
+    document.getElementById('ub-modal-code').textContent = 'Kod bana: ' + currentBanCode;
+    document.getElementById('ub-modal-after').textContent = p.result === 'removed'
+      ? 'Ban zostanie zdjęty w całości.'
+      : 'Ban zostanie skrócony — pozostanie ' + formatDuration(p.remainingMinutes) + '.';
+    document.getElementById('ub-modal-price').textContent = pkg.price + ' PLN';
+    document.getElementById('ub-modal-test-note').classList.toggle('hidden', !shopTestMode);
+    document.getElementById('modal-unban').classList.add('open');
+  }
+
+  function closeUnbanModal() {
+    document.getElementById('modal-unban').classList.remove('open');
+  }
+
+  function closeUnbanModalOutside(e) {
+    if (e.target === document.getElementById('modal-unban')) closeUnbanModal();
+  }
+
+  async function payUnban() {
+    if (!selectedUnban || !currentBanCode) return;
+    const btn = document.getElementById('ub-modal-confirm');
+    btn.textContent = 'Ładowanie...';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('/create-unban-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: currentBanCode, packageId: selectedUnban.id })
+      });
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert('Błąd podczas generowania płatności: ' + (data.error || 'Spróbuj ponownie'));
+        btn.textContent = 'Przejdź do płatności';
+        btn.disabled = false;
+      }
+    } catch (err) {
+      console.error('Błąd:', err);
+      alert('Nie udało się połączyć z serwerem płatności.');
+      btn.textContent = 'Przejdź do płatności';
+      btn.disabled = false;
+    }
+  }
+
+  /* ── Strona po zakupie unbana ── */
+  async function loadUnbanOrder(params) {
+    const sessionId = params.get('session_id');
+    if (!sessionId) {
+      showOrderError('Brak identyfikatora zamówienia.');
+      return;
     }
 
-    await conn.query(
-      'INSERT INTO riot_unban_orders (session_id, unban_code, ban_id, package_id, result, remaining_minutes, is_test) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [sessionId, code, ban ? ban.id : null, pkg.id, result, remaining, isTest ? 1 : 0]
-    );
+    const qs = new URLSearchParams({ session_id: sessionId });
+    if (params.get('package')) qs.set('package', params.get('package'));
+    if (params.get('code')) qs.set('code', params.get('code'));
 
-    await conn.commit();
-    return { result, remaining_minutes: remaining, package_id: pkg.id };
-  } catch (err) {
-    await conn.rollback();
-    // dwa równoległe odświeżenia strony – drugi dostaje ten sam wynik
-    if (err.code === 'ER_DUP_ENTRY') {
-      const [rows] = await pool.query(
-        'SELECT result, remaining_minutes, package_id FROM riot_unban_orders WHERE session_id = ?',
-        [sessionId]
-      );
-      if (rows.length > 0) return rows[0];
+    try {
+      const res = await fetch('/api/unban-order?' + qs.toString());
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        showOrderError(data.error || 'Nie udało się zrealizować unbana.');
+        return;
+      }
+
+      const icon = document.getElementById('unban-icon');
+      const title = document.getElementById('unban-title');
+      const text = document.getElementById('unban-text');
+      const note = document.getElementById('unban-note');
+      icon.classList.remove('err');
+      note.textContent = '';
+
+      if (data.result === 'removed') {
+        title.textContent = 'Ban zdjęty!';
+        text.textContent = 'Pakiet ' + data.packageName + ' został zrealizowany. Ban został zdjęty w całości — możesz już wejść na serwer.';
+      } else if (data.result === 'reduced') {
+        title.textContent = 'Ban skrócony!';
+        text.textContent = 'Pakiet ' + data.packageName + ' został zrealizowany. Do końca bana pozostało: ' + formatDuration(data.remainingMinutes) + '.';
+        note.textContent = 'Możesz wykupić kolejny unban w zakładce Unbany, używając tego samego kodu bana.';
+      } else {
+        icon.classList.add('err');
+        title.textContent = 'Zakup bez efektu';
+        text.textContent = 'Ten ban jest już nieaktywny albo zmienił się od momentu zakupu, więc pakiet nic nie zmienił.';
+        note.textContent = 'Skontaktuj się z administracją i podaj numer zamówienia: ' + data.orderRef;
+      }
+
+      document.getElementById('unban-test-note').classList.toggle('hidden', !data.test);
+      document.getElementById('order-loading').classList.add('hidden');
+      document.getElementById('order-error').classList.add('hidden');
+      document.getElementById('unban-ok').classList.remove('hidden');
+    } catch (err) {
+      console.error(err);
+      showOrderError('Nie udało się połączyć z serwerem. Odśwież stronę.');
     }
-    throw err;
-  } finally {
-    conn.release();
   }
-}
 
-// Wynik zakupu unbana (wywoływane przez stronę /success?type=unban)
-app.get('/api/unban-order', unbanLimiter, async (req, res) => {
-  try {
-    const sessionId = String(req.query.session_id || '');
-    let packageId;
-    let code;
-    let isTest = false;
+  /* ── Start ── */
+  (async function init() {
+    try {
+      const res = await fetch('/api/config');
+      const cfg = await res.json();
+      shopTestMode = !!cfg.test;
+      if (shopTestMode) document.getElementById('pkg-test').style.display = 'flex';
+      unbanPackages = Array.isArray(cfg.unbanPackages) ? cfg.unbanPackages : [];
+      renderUnbanCards();
+    } catch (e) { /* brak configu = tryb produkcyjny */ }
 
-    if (sessionId.startsWith('test_')) {
-      if (!TEST) return res.status(403).json({ success: false, error: 'Tryb testowy jest wyłączony.' });
-      if (!/^test_[a-f0-9]{16}$/.test(sessionId)) {
-        return res.status(400).json({ success: false, error: 'Nieprawidłowy identyfikator zamówienia.' });
-      }
-      packageId = String(req.query.package || '');
-      code = normalizeBanCode(req.query.code);
-      isTest = true;
-    } else if (/^cs_[A-Za-z0-9_]+$/.test(sessionId)) {
-      const session = await stripe.checkout.sessions.retrieve(sessionId);
-      if (session.payment_status !== 'paid') {
-        return res.status(402).json({
-          success: false,
-          error: 'Płatność nie została jeszcze potwierdzona. Odśwież stronę za chwilę.',
-        });
-      }
-      const md = session.metadata || {};
-      if (md.type !== 'unban') {
-        return res.status(400).json({ success: false, error: 'To zamówienie nie dotyczy unbana.' });
-      }
-      packageId = md.packageId;
-      code = normalizeBanCode(md.banCode);
-    } else {
-      return res.status(400).json({ success: false, error: 'Nieprawidłowy identyfikator zamówienia.' });
+    if (location.pathname === '/success') {
+      showPage('success', null);
+      loadOrder();
     }
-
-    const pkg = getUnbanPackage(packageId);
-    if (!pkg || !code) return res.status(400).json({ success: false, error: 'Nieprawidłowe dane zamówienia.' });
-
-    const order = await fulfillUnban(sessionId, code, pkg, isTest);
-    const orderPkg = getUnbanPackage(order.package_id) || pkg;
-
-    res.json({
-      success: true,
-      packageName: orderPkg.name,
-      result: order.result, // removed | reduced | no_effect
-      remainingMinutes: order.remaining_minutes,
-      orderRef: sessionId.slice(-8),
-      test: isTest,
-    });
-  } catch (error) {
-    console.error('Błąd realizacji unbana:', error);
-    res.status(500).json({ success: false, error: 'Błąd serwera. Skontaktuj się z administracją.' });
-  }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Serwer działa na porcie ${PORT}`);
-  if (TEST) console.warn('⚠️  TRYB TESTOWY WŁĄCZONY – płatności są pomijane!');
-});
-
-// Sprawdzenie bazy przy starcie (bez wypisywania danych użytkowników)
-(async () => {
-  try {
-    await pool.query('SELECT 1 FROM riot_coins LIMIT 1');
-    await pool.query('SELECT 1 FROM riot_orders LIMIT 1');
-    console.log('✅ Połączono z bazą, tabele riot_coins i riot_orders są dostępne');
-  } catch (err) {
-    console.error('❌ Błąd bazy:', err.code, err.message);
-  }
-})();
-
-// Unbany: tabela zamówień + sprawdzenie, czy zasób FiveM (alion_bans) jest zaktualizowany
-(async () => {
-  try {
-    await ensureUnbanTables();
-    await pool.query('SELECT unban_code FROM alion_bans LIMIT 1');
-    console.log('✅ Unbany gotowe: tabele alion_bans i riot_unban_orders są dostępne');
-  } catch (err) {
-    console.error('❌ Błąd bazy (unbany):', err.code, err.message,
-      '— uruchom serwer FiveM z zasobem alion_bans, żeby utworzył kolumnę unban_code.');
-  }
-})();
+  })();
+</script>
+</body>
+</html>
