@@ -39,11 +39,11 @@ function getPackage(id) {
 //  Pakiety czasowe NIE działają na ban permanentny – tylko pakiet "perm".
 // ════════════════════════════════════════════════════════════
 const UNBAN_PACKAGES = {
-  '24h':  { name: 'Unban 24h',         label: '24 godziny',  minutes: 24 * 60,      price: 30 },
+  '24h':  { name: 'Unban 24h',         label: '24 godz.',    minutes: 24 * 60,      price: 30 },
   '7d':   { name: 'Unban 7 dni',       label: '7 dni',       minutes: 7 * 24 * 60,  price: 50 },
   '14d':  { name: 'Unban 14 dni',      label: '14 dni',      minutes: 14 * 24 * 60, price: 60 },
   '30d':  { name: 'Unban 30 dni',      label: '30 dni',      minutes: 30 * 24 * 60, price: 100 },
-  'perm': { name: 'Unban permanentny', label: 'Permanentny', minutes: null,         price: 200, perm: true },
+  'perm': { name: 'Unban permanentny', label: 'PERM',        minutes: null,         price: 200, perm: true },
 };
 
 function getUnbanPackage(id) {
