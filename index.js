@@ -528,13 +528,40 @@ app.listen(PORT, () => {
 })();
 
 // Unbany: tabela zamówień + sprawdzenie, czy zasób FiveM (alion_bans) jest zaktualizowany
+const PORT = process.env.PORT || 3000;
+
 (async () => {
   try {
+    // Sprawdź tabele sklepu
+    await pool.query('SELECT 1 FROM riot_coins LIMIT 1');
+    await pool.query('SELECT 1 FROM riot_orders LIMIT 1');
+
+    console.log('✅ Tabele riot_coins i riot_orders są dostępne');
+
+    // Utwórz tabelę zamówień unbanów, jeśli jej brakuje
     await ensureUnbanTables();
+
+    // Sprawdź strukturę tabeli banów
     await pool.query('SELECT unban_code FROM alion_bans LIMIT 1');
-    console.log('✅ Unbany gotowe: tabele alion_bans i riot_unban_orders są dostępne');
+
+    console.log('✅ Tabele unbanów są dostępne');
+
+    // Dopiero teraz uruchom serwer
+    app.listen(PORT, () => {
+      console.log(`Serwer działa na porcie ${PORT}`);
+
+      if (TEST) {
+        console.warn(
+          '⚠️ TRYB TESTOWY WŁĄCZONY – płatności są pomijane!'
+        );
+      }
+    });
   } catch (err) {
-    console.error('❌ Błąd bazy (unbany):', err.code, err.message,
-      '— uruchom serwer FiveM z zasobem alion_bans, żeby utworzył kolumnę unban_code.');
+    console.error(
+      '❌ Nie można uruchomić serwera – problem z bazą danych:',
+      err.code,
+      err.message
+    );
+    process.exit(1);
   }
 })();
