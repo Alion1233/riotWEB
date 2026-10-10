@@ -678,6 +678,117 @@
   }
   .btn-ghost:hover { background: var(--white); color: var(--bg-main); }
 
+  /* ── UNBANY ── */
+  .unban-lookup {
+    max-width: 640px;
+    margin: 0 auto 48px;
+    padding: 32px 36px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.35);
+  }
+
+  .ub-form { display: flex; gap: 12px; align-items: stretch; }
+
+  .ub-input {
+    flex: 1; min-width: 0;
+    font-family: 'Courier New', monospace;
+    font-size: 20px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase;
+    text-align: center;
+    color: var(--white);
+    background: var(--bg-main);
+    border: 1px dashed rgba(255, 0, 60, 0.45);
+    border-radius: 6px;
+    padding: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .ub-input::placeholder { color: rgba(143, 156, 174, 0.45); }
+  .ub-input:focus { border-style: solid; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255, 0, 60, 0.12); }
+
+  .ub-check { padding: 0 32px; white-space: nowrap; }
+  .ub-check:disabled { opacity: 0.6; cursor: wait; transform: none; }
+
+  .ub-msg {
+    margin-top: 16px;
+    font-size: 14px; line-height: 1.6;
+    color: #FF6B8A;
+    text-align: center;
+  }
+
+  .ub-status {
+    margin-top: 24px;
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 20px;
+  }
+
+  .ub-row {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 20px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px; color: var(--text-muted);
+  }
+  .ub-row:last-child { border-bottom: none; }
+  .ub-row strong { color: var(--white); font-weight: 600; text-align: right; word-break: break-word; }
+  .ub-row strong.perm { color: var(--accent); }
+
+  .ub-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 20px;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 40px 60px;
+  }
+
+  .ub-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 32px 24px 28px;
+    text-align: center;
+    display: flex; flex-direction: column;
+    transition: transform 0.3s, border-color 0.3s, opacity 0.3s;
+  }
+  .ub-card:hover { transform: translateY(-4px); border-color: rgba(255,255,255,0.15); }
+  .ub-card.disabled { opacity: 0.45; }
+  .ub-card.disabled:hover { transform: none; border-color: var(--border); }
+
+  .ub-tier {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: 3px; text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .ub-duration {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 30px; font-weight: 700;
+    text-transform: uppercase;
+    color: var(--white);
+    line-height: 1.1;
+    margin-bottom: 18px;
+  }
+  .ub-card.perm .ub-duration { color: var(--accent); text-shadow: 0 0 24px var(--accent-glow); }
+
+  .ub-card .pkg-price { margin-bottom: 14px; }
+
+  .ub-after {
+    font-size: 13px; line-height: 1.55;
+    color: var(--text-muted);
+    min-height: 40px;
+    margin-bottom: 20px;
+    flex-grow: 1;
+  }
+
+  .pkg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .pkg-btn:disabled:hover { background: rgba(255, 255, 255, 0.02); color: var(--white); border-color: rgba(255, 255, 255, 0.1); }
+
   /* ── RESPONSIVENESS ── */
   @media (max-width: 1024px) {
     .packages { flex-direction: column; max-width: 460px; gap: 24px; }
@@ -699,6 +810,11 @@
     .code-box, .cmd-box { flex-direction: column; }
     .copy-btn { padding: 14px 0; }
     .code-value { font-size: 18px; }
+    .unban-lookup { margin: 0 16px 36px; padding: 24px 20px; }
+    .ub-form { flex-direction: column; }
+    .ub-check { padding: 14px 0; }
+    .ub-input { font-size: 17px; }
+    .ub-grid { padding: 0 16px 48px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -718,6 +834,7 @@
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="showPage('home', this)">Serwer</button>
     <button class="nav-tab" onclick="showPage('shop', this)">Sklep</button>
+    <button class="nav-tab" onclick="showPage('unban', this)">Unbany</button>
   </div>
 </nav>
 
@@ -916,6 +1033,39 @@
   </p>
 </div>
 
+<!-- UNBANY -->
+<div id="page-unban" class="page">
+  <div class="shop-header">
+    <div class="shop-eyebrow">Odwołania od bana</div>
+    <h2 class="shop-title">Wykup unbana</h2>
+    <p class="shop-desc">Wpisz kod bana widoczny na ekranie przy próbie wejścia na serwer. Zakupiony pakiet skraca ban o wybrany czas — jeśli ban jest krótszy, zostaje zdjęty w całości.</p>
+  </div>
+
+  <div class="unban-lookup">
+    <label class="code-label" for="ub-code" style="margin-top:0;">Kod bana</label>
+    <form class="ub-form" onsubmit="lookupBan(event)">
+      <input id="ub-code" class="ub-input" type="text" placeholder="XXXX-XXXX-XXXX" maxlength="14"
+             autocomplete="off" autocapitalize="characters" spellcheck="false" oninput="onBanCodeInput(this)">
+      <button class="btn-primary ub-check" id="ub-check-btn" type="submit">Sprawdź</button>
+    </form>
+    <div class="ub-msg hidden" id="ub-msg"></div>
+
+    <div class="ub-status hidden" id="ub-status">
+      <div class="ub-row"><span>Nick</span><strong id="ub-st-name">—</strong></div>
+      <div class="ub-row"><span>Powód</span><strong id="ub-st-reason">—</strong></div>
+      <div class="ub-row"><span>Pozostało do końca bana</span><strong id="ub-st-time">—</strong></div>
+    </div>
+  </div>
+
+  <div class="ub-grid" id="ub-grid"></div>
+
+  <p class="shop-note">
+    Po opłaceniu ban jest skracany automatycznie — nie musisz wpisywać żadnej komendy w grze.<br>
+    Pakiety czasowe nie działają na ban permanentny — tu potrzebny jest Unban permanentny.<br>
+    Problem z zakupem? Napisz do nas na Discordzie lub e-mail: <strong>riotrpofficial@gmail.com</strong>
+  </p>
+</div>
+
 <!-- SUCCESS (kod po zakupie) -->
 <div id="page-success" class="page">
   <div class="success-wrap">
@@ -935,6 +1085,26 @@
       <p class="success-sub" id="order-error-text">—</p>
       <div class="success-actions">
         <button class="btn-ghost" onclick="location.reload()">Spróbuj ponownie</button>
+      </div>
+    </div>
+
+    <!-- unban: wynik zakupu -->
+    <div class="hidden" id="unban-ok">
+      <div class="success-card">
+        <div class="success-icon" id="unban-icon">
+          <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        </div>
+        <div class="success-title" id="unban-title">—</div>
+        <p class="success-sub" id="unban-text">—</p>
+
+        <div class="test-note hidden" id="unban-test-note" style="margin-top:20px;">
+          Tryb testowy — płatność została pominięta
+        </div>
+
+        <p class="warn-note" id="unban-note" style="text-align:center;"></p>
+        <div class="success-actions">
+          <button class="btn-ghost" onclick="showPage('home', document.querySelectorAll('.nav-tab')[0])">Wróć na stronę główną</button>
+        </div>
       </div>
     </div>
 
@@ -1001,6 +1171,27 @@
       Po zatwierdzeniu zostaniesz przekierowany do systemu bezpiecznych płatności internetowych.
     </div>
     <button class="modal-confirm" onclick="payWithStripe()">Przejdź do płatności</button>
+  </div>
+</div>
+
+<!-- MODAL UNBAN -->
+<div class="modal-overlay" id="modal-unban" onclick="closeUnbanModalOutside(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeUnbanModal()">✕</button>
+    <svg class="modal-icon-svg" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+    <div class="modal-title">Podsumowanie</div>
+    <div class="modal-body">Wykupujesz:</div>
+    <div class="modal-pkg" id="ub-modal-pkg">—</div>
+    <div class="modal-body" id="ub-modal-code">—</div>
+    <div class="modal-body" id="ub-modal-after" style="margin-top:6px;">—</div>
+    <div class="modal-price" style="margin-top:18px;" id="ub-modal-price">—</div>
+    <div class="test-note hidden" id="ub-modal-test-note">
+      Tryb testowy — płatność zostanie pominięta
+    </div>
+    <div class="modal-body" style="margin-bottom:28px; font-size:12px;">
+      Po zatwierdzeniu zostaniesz przekierowany do systemu bezpiecznych płatności internetowych.
+    </div>
+    <button class="modal-confirm" id="ub-modal-confirm" onclick="payUnban()">Przejdź do płatności</button>
   </div>
 </div>
 
@@ -1092,12 +1283,14 @@
   function showOrderError(msg) {
     document.getElementById('order-loading').classList.add('hidden');
     document.getElementById('order-ok').classList.add('hidden');
+    document.getElementById('unban-ok').classList.add('hidden');
     document.getElementById('order-error-text').textContent = msg;
     document.getElementById('order-error').classList.remove('hidden');
   }
 
   async function loadOrder() {
     const params = new URLSearchParams(location.search);
+    if (params.get('type') === 'unban') return loadUnbanOrder(params);
     const sessionId = params.get('session_id');
     if (!sessionId) {
       showOrderError('Brak identyfikatora zamówienia.');
@@ -1131,6 +1324,278 @@
     }
   }
 
+  /* ── UNBANY ── */
+  let unbanPackages = [];
+  let currentBanCode = '';
+  let currentBan = null;
+  let currentPreview = {};
+  let selectedUnban = null;
+
+  function formatDuration(min) {
+    if (!min || min <= 0) return '0 min';
+    const d = Math.floor(min / 1440);
+    const h = Math.floor((min % 1440) / 60);
+    const m = min % 60;
+    const parts = [];
+    if (d) parts.push(d + (d === 1 ? ' dzień' : ' dni'));
+    if (h) parts.push(h + ' godz.');
+    if (m && !d) parts.push(m + ' min');
+    return parts.join(' ') || '0 min';
+  }
+
+  function formatBanCodeInput(value) {
+    const raw = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+    return (raw.match(/.{1,4}/g) || []).join('-');
+  }
+
+  function makeEl(tag, cls, text) {
+    const el = document.createElement(tag);
+    if (cls) el.className = cls;
+    if (text !== undefined) el.textContent = text;
+    return el;
+  }
+
+  function renderUnbanCards() {
+    const grid = document.getElementById('ub-grid');
+    if (!grid) return;
+    grid.textContent = '';
+
+    unbanPackages.forEach(pkg => {
+      const card = makeEl('div', 'ub-card' + (pkg.perm ? ' perm' : ''));
+      card.id = 'ub-card-' + pkg.id;
+
+      card.appendChild(makeEl('div', 'ub-tier', 'Unban'));
+      card.appendChild(makeEl('div', 'ub-duration', pkg.label));
+
+      const price = makeEl('div', 'pkg-price');
+      const amount = makeEl('span', 'price-amount');
+      amount.appendChild(makeEl('span', 'price-cur', 'PLN'));
+      amount.appendChild(document.createTextNode(' ' + pkg.price));
+      price.appendChild(amount);
+      card.appendChild(price);
+
+      card.appendChild(makeEl('div', 'ub-after'));
+
+      const btn = makeEl('button', 'pkg-btn', 'Wpisz kod bana');
+      btn.type = 'button';
+      btn.disabled = true;
+      btn.addEventListener('click', () => openUnbanModal(pkg.id));
+      card.appendChild(btn);
+
+      grid.appendChild(card);
+    });
+
+    updateUnbanCards();
+  }
+
+  function updateUnbanCards() {
+    unbanPackages.forEach(pkg => {
+      const card = document.getElementById('ub-card-' + pkg.id);
+      if (!card) return;
+      const after = card.querySelector('.ub-after');
+      const btn = card.querySelector('.pkg-btn');
+      const p = currentPreview[pkg.id];
+
+      card.classList.toggle('disabled', !!currentBan && !(p && p.applicable));
+
+      if (!currentBan) {
+        after.textContent = pkg.perm
+          ? 'Zdejmuje ban w całości — także permanentny'
+          : 'Skraca ban o ' + formatDuration(pkg.minutes);
+        btn.disabled = true;
+        btn.textContent = 'Wpisz kod bana';
+      } else if (!p || !p.applicable) {
+        after.textContent = 'Niedostępny dla bana permanentnego';
+        btn.disabled = true;
+        btn.textContent = 'Niedostępny';
+      } else if (p.result === 'removed') {
+        after.textContent = 'Ban zostanie zdjęty w całości';
+        btn.disabled = false;
+        btn.textContent = 'Kup unban';
+      } else {
+        after.textContent = 'Po zakupie zostanie: ' + formatDuration(p.remainingMinutes);
+        btn.disabled = false;
+        btn.textContent = 'Kup unban';
+      }
+    });
+  }
+
+  function setUnbanMsg(text) {
+    const el = document.getElementById('ub-msg');
+    el.textContent = text || '';
+    el.classList.toggle('hidden', !text);
+  }
+
+  function resetUnbanLookup() {
+    currentBan = null;
+    currentBanCode = '';
+    currentPreview = {};
+    document.getElementById('ub-status').classList.add('hidden');
+    updateUnbanCards();
+  }
+
+  function onBanCodeInput(input) {
+    input.value = formatBanCodeInput(input.value);
+    setUnbanMsg('');
+    if (currentBan && input.value !== currentBanCode) resetUnbanLookup();
+  }
+
+  function showBanStatus() {
+    document.getElementById('ub-st-name').textContent = currentBan.name || '—';
+    document.getElementById('ub-st-reason').textContent = currentBan.reason || '—';
+    const time = document.getElementById('ub-st-time');
+    time.textContent = currentBan.perm ? 'Permanentny' : formatDuration(currentBan.minutesLeft);
+    time.classList.toggle('perm', !!currentBan.perm);
+    document.getElementById('ub-status').classList.remove('hidden');
+  }
+
+  async function lookupBan(e) {
+    e.preventDefault();
+    const input = document.getElementById('ub-code');
+    const btn = document.getElementById('ub-check-btn');
+    const code = formatBanCodeInput(input.value);
+
+    setUnbanMsg('');
+    resetUnbanLookup();
+    if (code.replace(/-/g, '').length !== 12) {
+      setUnbanMsg('Wpisz pełny kod bana (12 znaków).');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Sprawdzam...';
+    try {
+      const res = await fetch('/api/ban-lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setUnbanMsg(data.error || 'Nie udało się sprawdzić bana.');
+        return;
+      }
+
+      currentBanCode = data.code;
+      currentBan = data.ban;
+      currentPreview = {};
+      data.packages.forEach(p => { currentPreview[p.id] = p; });
+      showBanStatus();
+      updateUnbanCards();
+    } catch (err) {
+      console.error(err);
+      setUnbanMsg('Nie udało się połączyć z serwerem.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Sprawdź';
+    }
+  }
+
+  function openUnbanModal(id) {
+    const pkg = unbanPackages.find(p => p.id === id);
+    const p = currentPreview[id];
+    if (!pkg || !currentBan || !p || !p.applicable) return;
+
+    selectedUnban = pkg;
+    document.getElementById('ub-modal-pkg').textContent = pkg.name;
+    document.getElementById('ub-modal-code').textContent = 'Kod bana: ' + currentBanCode;
+    document.getElementById('ub-modal-after').textContent = p.result === 'removed'
+      ? 'Ban zostanie zdjęty w całości.'
+      : 'Ban zostanie skrócony — pozostanie ' + formatDuration(p.remainingMinutes) + '.';
+    document.getElementById('ub-modal-price').textContent = pkg.price + ' PLN';
+    document.getElementById('ub-modal-test-note').classList.toggle('hidden', !shopTestMode);
+    document.getElementById('modal-unban').classList.add('open');
+  }
+
+  function closeUnbanModal() {
+    document.getElementById('modal-unban').classList.remove('open');
+  }
+
+  function closeUnbanModalOutside(e) {
+    if (e.target === document.getElementById('modal-unban')) closeUnbanModal();
+  }
+
+  async function payUnban() {
+    if (!selectedUnban || !currentBanCode) return;
+    const btn = document.getElementById('ub-modal-confirm');
+    btn.textContent = 'Ładowanie...';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('/create-unban-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: currentBanCode, packageId: selectedUnban.id })
+      });
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert('Błąd podczas generowania płatności: ' + (data.error || 'Spróbuj ponownie'));
+        btn.textContent = 'Przejdź do płatności';
+        btn.disabled = false;
+      }
+    } catch (err) {
+      console.error('Błąd:', err);
+      alert('Nie udało się połączyć z serwerem płatności.');
+      btn.textContent = 'Przejdź do płatności';
+      btn.disabled = false;
+    }
+  }
+
+  /* ── Strona po zakupie unbana ── */
+  async function loadUnbanOrder(params) {
+    const sessionId = params.get('session_id');
+    if (!sessionId) {
+      showOrderError('Brak identyfikatora zamówienia.');
+      return;
+    }
+
+    const qs = new URLSearchParams({ session_id: sessionId });
+    if (params.get('package')) qs.set('package', params.get('package'));
+    if (params.get('code')) qs.set('code', params.get('code'));
+
+    try {
+      const res = await fetch('/api/unban-order?' + qs.toString());
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        showOrderError(data.error || 'Nie udało się zrealizować unbana.');
+        return;
+      }
+
+      const icon = document.getElementById('unban-icon');
+      const title = document.getElementById('unban-title');
+      const text = document.getElementById('unban-text');
+      const note = document.getElementById('unban-note');
+      icon.classList.remove('err');
+      note.textContent = '';
+
+      if (data.result === 'removed') {
+        title.textContent = 'Ban zdjęty!';
+        text.textContent = 'Pakiet ' + data.packageName + ' został zrealizowany. Ban został zdjęty w całości — możesz już wejść na serwer.';
+      } else if (data.result === 'reduced') {
+        title.textContent = 'Ban skrócony!';
+        text.textContent = 'Pakiet ' + data.packageName + ' został zrealizowany. Do końca bana pozostało: ' + formatDuration(data.remainingMinutes) + '.';
+        note.textContent = 'Możesz wykupić kolejny unban w zakładce Unbany, używając tego samego kodu bana.';
+      } else {
+        icon.classList.add('err');
+        title.textContent = 'Zakup bez efektu';
+        text.textContent = 'Ten ban jest już nieaktywny albo zmienił się od momentu zakupu, więc pakiet nic nie zmienił.';
+        note.textContent = 'Skontaktuj się z administracją i podaj numer zamówienia: ' + data.orderRef;
+      }
+
+      document.getElementById('unban-test-note').classList.toggle('hidden', !data.test);
+      document.getElementById('order-loading').classList.add('hidden');
+      document.getElementById('order-error').classList.add('hidden');
+      document.getElementById('unban-ok').classList.remove('hidden');
+    } catch (err) {
+      console.error(err);
+      showOrderError('Nie udało się połączyć z serwerem. Odśwież stronę.');
+    }
+  }
+
   /* ── Start ── */
   (async function init() {
     try {
@@ -1138,6 +1603,8 @@
       const cfg = await res.json();
       shopTestMode = !!cfg.test;
       if (shopTestMode) document.getElementById('pkg-test').style.display = 'flex';
+      unbanPackages = Array.isArray(cfg.unbanPackages) ? cfg.unbanPackages : [];
+      renderUnbanCards();
     } catch (e) { /* brak configu = tryb produkcyjny */ }
 
     if (location.pathname === '/success') {
