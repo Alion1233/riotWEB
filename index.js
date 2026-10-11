@@ -12,7 +12,7 @@ const mysql = require('mysql2/promise');
 //  false = prawdziwe płatności
 //  !!! PRZED URUCHOMIENIEM SKLEPU DLA GRACZY USTAW NA false !!!
 // ════════════════════════════════════════════════════════════
-const TEST = false;
+const TEST = true;
 
 // Pakiety definiowane po stronie serwera (klient nie decyduje o cenie ani liczbie coinów)
 const PACKAGES = {
