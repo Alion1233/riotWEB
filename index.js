@@ -16,7 +16,7 @@ const TEST = false;
 
 // Pakiety definiowane po stronie serwera (klient nie decyduje o cenie ani liczbie coinów)
 const PACKAGES = {
-  test:         { name: 'Test',         coins: 100,   price: 2,   testOnly: false },
+  test:         { name: 'Test',         coins: 100,   price: 2 },
   nowicjusz:    { name: 'Nowicjusz',    coins: 1000,  price: 29 },
   zaangazowany: { name: 'Zaangażowany', coins: 5000,  price: 99 },
   pro:          { name: 'Pro',          coins: 10000, price: 179 },
